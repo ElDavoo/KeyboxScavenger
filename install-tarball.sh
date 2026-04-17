@@ -1,15 +1,15 @@
 #!/system/bin/sh
 # ${1:-$id} Tarball Installer
-# Copyright 2019-2022, VR25
+# Copyright 2019-2022, ElDavoo
 # License: GPLv3+
 #
 # this file must be in the same directory as the tarball
 # $1: module id
 # $2: parent install dir, optional
-# example: sh install-tarball.sh acc /data/data/github.vr25.acc/files
+# example: sh install-tarball.sh kbs /data/data/github.eldavoo.keyboxscavenger/files
 
-id=acc
-domain=vr25
+id=kbs
+domain=eldavoo
 data_dir=/data/adb/$domain/${1:-$id}-data
 
 # log
@@ -20,8 +20,8 @@ set -x
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/vr25/bin
-busybox_dir=/dev/.vr25/busybox
+bin_dir=/data/adb/eldavoo/bin
+busybox_dir=/dev/.eldavoo/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir

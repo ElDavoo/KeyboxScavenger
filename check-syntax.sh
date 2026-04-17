@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Basic Shell Syntax Checker
-# Copyright 2018-2020, VR25
+# Copyright 2018-2020, ElDavoo
 # License: GPLv3+
 
 (echo

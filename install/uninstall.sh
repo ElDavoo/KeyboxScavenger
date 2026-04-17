@@ -1,18 +1,19 @@
 #!/system/bin/sh
 # $id uninstaller
 # id is set/corrected by build.sh
-# Copyright 2019-2024, VR25
+# Copyright 2019-2024, ElDavoo
 # License: GPLv3+
 
 set -u
-id=acc
-domain=vr25
+id=kbs
+domain=eldavoo
 export TMPDIR=/dev/.$domain/$id
+pifTMPDIR=/dev/.$domain/pif
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/vr25/bin
-busybox_dir=/dev/.vr25/busybox
+bin_dir=/data/adb/eldavoo/bin
+busybox_dir=/dev/.eldavoo/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir
@@ -45,14 +46,25 @@ mkdir -p $TMPDIR
   flock 0
 }) <>$TMPDIR/${id}.lock
 
+# terminate/kill pif daemon process
+mkdir -p $pifTMPDIR
+(flock -n 0 || {
+  read pid
+  kill $pid
+  timeout 10 flock 0
+  kill -KILL $pid >/dev/null 2>&1
+  flock 0
+}) <>$pifTMPDIR/pif.lock
+
 # uninstall
 rm -rf \
   /data/local/tmp/${id}[-_]* \
   /data/adb/service.d/${id}-*.sh \
-  /data/data/mattecarra.accapp/files/$id \
+  /data/data/github.eldavoo.keyboxscavenger/files/$id \
   /data/data/com.termux/files/home/.termux/boot/${id}-init.sh
 
 [ "${1:-}" = install ] || rm -rf $(readlink -f /data/adb/$domain/$id) /data/adb/$domain/${id}-data
+[ "${1:-}" = install ] || rm -rf /data/adb/$domain/pif-data
 rmdir /data/adb/$domain
 
 exit 0

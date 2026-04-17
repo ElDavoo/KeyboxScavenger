@@ -1,9 +1,9 @@
 #!/system/bin/sh
 #
 # $id Online Installer
-# https://raw.githubusercontent.com/VR-25/$id/$commit/install-online.sh
+# https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/$commit/install-online.sh
 #
-# Copyright 2019-2024, VR25
+# Copyright 2019-2024, ElDavoo
 # License: GPLv3+
 #
 # Usage: sh install-online.sh [-c|--changelog] [-f|--force] [-n|--non-interactive] [%parent install dir%] [commit]
@@ -11,8 +11,9 @@
 
 set +x
 echo
-id=acc
-domain=vr25
+id=kbs
+domain=eldavoo
+repo=KeyboxScavenger
 data_dir=/data/adb/$domain/${id}-data
 
 # log
@@ -25,8 +26,8 @@ trap 'e=$?; echo; exit $e' EXIT
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/vr25/bin
-busybox_dir=/dev/.vr25/busybox
+bin_dir=/data/adb/eldavoo/bin
+busybox_dir=/dev/.eldavoo/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir
@@ -59,9 +60,9 @@ set -eu
 get_ver() { sed -n 's/^versionCode=//p' ${1:-}; }
 
 
-! test -f /data/adb/vr25/bin/curl || {
-  test -x /data/adb/vr25/bin/curl \
-    || chmod -R 0755 /data/adb/vr25/bin
+! test -f /data/adb/eldavoo/bin/curl || {
+  test -x /data/adb/eldavoo/bin/curl \
+    || chmod -R 0755 /data/adb/eldavoo/bin
 }
 
 
@@ -74,7 +75,7 @@ set_dl() {
   else
     _curl() {
       shift $(($# - 1))
-      PATH=${PATH#*/busybox:} /dev/.vr25/busybox/wget -O - --no-check-certificate $1
+      PATH=${PATH#*/busybox:} /dev/.eldavoo/busybox/wget -O - --no-check-certificate $1
     }
   fi
 }
@@ -83,18 +84,18 @@ set_dl
 
 
 commit=$(echo "$*" | sed -E 's/%.*%|-c|--changelog|-f|--force|-n|--non-interactive| //g')
-: ${commit:=master}
+: ${commit:=main}
 
-tarball=https://github.com/VR-25/$id/archive/${commit}.tar.gz
+tarball=https://github.com/ElDavoo/$repo/archive/${commit}.tar.gz
 
 installedVersion=$(get_ver /data/adb/$domain/$id/module.prop 2>/dev/null || :)
 
-onlineVersion=$(_curl https://raw.githubusercontent.com/VR-25/$id/${commit}/module.prop | get_ver)
+onlineVersion=$(_curl https://raw.githubusercontent.com/ElDavoo/$repo/${commit}/module.prop | get_ver)
 
 
 [ -f $PWD/${0##*/} ] || cd $(readlink -f ${0%/*})
 [ -z "${reference-}" ] || cd /dev/.$domain/$id
-rm -rf "./${id}-*/" 2>/dev/null || :
+rm -rf "./${repo}-*/" 2>/dev/null || :
 
 
 if [ ${installedVersion:-0} -lt ${onlineVersion:-0} ] \
@@ -104,7 +105,7 @@ then
   ! echo "$@" | grep -Eq '\-\-changelog|\-c' || {
     if echo "$@" | grep -Eq '\-\-non-interactive|\-n'; then
       echo $onlineVersion
-      echo "https://github.com/VR-25/$id/blob/${commit}/changelog.md"
+      echo "https://github.com/ElDavoo/$repo/blob/${commit}/changelog.md"
       exit 5 # no update available
     else
       echo
@@ -123,7 +124,7 @@ then
   trap - EXIT
   echo
   _curl $tarball | tar -xz \
-    && ash ${id}-*/install.sh
+    && ash ${repo}-*/install.sh
 
 else
   echo
@@ -133,5 +134,5 @@ fi
 
 
 set -eu
-rm -rf "./${id}-*/" 2>/dev/null
+rm -rf "./${repo}-*/" 2>/dev/null
 exit 0

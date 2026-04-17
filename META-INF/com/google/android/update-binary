@@ -1,6 +1,6 @@
 #!/system/bin/sh
 # $id Installer/Upgrader
-# Copyright 2019-2024, VR25
+# Copyright 2019-2024, ElDavoo
 # License: GPLv3+
 #
 # devs: triple hashtags (###) mark non-generic code
@@ -12,8 +12,8 @@ SKIPMOUNT=false
 
 
 echo
-id=acc
-domain=vr25
+id=kbs
+domain=eldavoo
 data_dir=/data/adb/$domain/${id}-data
 
 
@@ -41,8 +41,8 @@ trap exxit EXIT
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/vr25/bin
-busybox_dir=/dev/.vr25/busybox
+bin_dir=/data/adb/eldavoo/bin
+busybox_dir=/dev/.eldavoo/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir
@@ -110,31 +110,31 @@ author=$(get_prop author)
 version=$(get_prop version)
 magiskModDir=/data/adb/modules
 versionCode=$(get_prop versionCode)
-accaFiles=/data/data/mattecarra.accapp/files ###
-: ${installDir:=$accaFiles} ###
+appFiles=/data/data/github.eldavoo.keyboxscavenger/files ###
+: ${installDir:=$appFiles} ###
 config=$data_dir/config.txt
 
 
 # install in front-end's internal path by default
-if [ "$installDir" != "$accaFiles" ]; then
+if [ "$installDir" != "$appFiles" ]; then
   case "$installDir" in
     /data/data/*|/data/user/*)
-      accaFiles="$installDir"
+      appFiles="$installDir"
     ;;
   esac
 fi
 
 
 [ -d $magiskModDir ] && magisk=true || magisk=false
-ls -d ${accaFiles%/*}* > /dev/null 2>&1 && acca=true || acca=false ###
+ls -d ${appFiles%/*}* > /dev/null 2>&1 && frontend=true || frontend=false ###
 
 
-# ensure AccA's files/ exists - to prevent unwanted downgrades ###
-if $acca && [ ! -d $accaFiles ]; then
-  if mkdir $accaFiles 2>/dev/null; then
-    chown $(stat -c %u:%g ${accaFiles%/*}) $accaFiles
-    chmod $(stat -c %a ${accaFiles%/*}) $accaFiles
-    /system/bin/restorecon $accaFiles
+# ensure front-end files/ exists - to prevent unwanted downgrades ###
+if $frontend && [ ! -d $appFiles ]; then
+  if mkdir $appFiles 2>/dev/null; then
+    chown $(stat -c %u:%g ${appFiles%/*}) $appFiles
+    chmod $(stat -c %a ${appFiles%/*}) $appFiles
+    /system/bin/restorecon $appFiles
   fi
 fi
 
@@ -205,19 +205,19 @@ fi" > $j
 
 
 ###
-if $acca; then
+if $frontend; then
 
   ! $magisk || {
 
-    ln -fs $installDir $accaFiles/
+    ln -fs $installDir $appFiles/
 
-    # AccA post-uninstall cleanup script
+    # front-end post-uninstall cleanup script
     mkdir -p /data/adb/service.d || {
       rm /data/adb/service.d
       mkdir /data/adb/service.d
     }
     echo "#!/system/bin/sh
-      # acc front-end post-uninstall cleanup script
+      # kbs front-end post-uninstall cleanup script
 
       until test -d /sdcard/Android \\
         && test .\$(getprop sys.boot_completed) = .1
@@ -227,7 +227,7 @@ if $acca; then
 
       sleep 60
 
-      [ -e $accaFiles/$id ] || rm -rf \$0 /data/adb/$domain/$id /data/adb/modules/$id 2>/dev/null
+      [ -e $appFiles/$id ] || rm -rf \$0 /data/adb/$domain/$id /data/adb/modules/$id 2>/dev/null
 
       exit 0" | sed 's/^      //' > /data/adb/service.d/${id}-cleanup.sh
     chmod 0755 /data/adb/service.d/${id}-cleanup.sh
@@ -304,11 +304,11 @@ _echo() {
 
 
 printf "\n\n"
-printf "$version ($versionCode) installed and running!\n\nRollback with acc -b if not satisfied.\n\n" | tee $tmpd/.install-notes
+printf "$version ($versionCode) installed and running!\n\nUse $id --daemon status to verify services.\n\n" | tee $tmpd/.install-notes
 if [ -x /sbin/${id}d ] || grep -q '#exec_wrapper' /system/bin/${id}d 2>/dev/null; then
   _echo "Rebooting is unnecessary."
 else
-  _echo "Note: If you're not rebooting now, prefix all acc executables with /dev/ (as in /dev/acc -i, /dev/accd). Reasoning: Magisk, KernelSU and similar, don't [re]mount/update modules without a reboot."
+  _echo "Note: If you're not rebooting now, prefix all $id executables with /dev/ (as in /dev/${id} --daemon status, /dev/${id}d). Reasoning: Magisk, KernelSU and similar, don't [re]mount/update modules without a reboot."
 fi
 
 

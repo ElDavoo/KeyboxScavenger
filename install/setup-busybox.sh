@@ -1,12 +1,12 @@
 # Busybox Setup
-# Copyright 2019-2024, VR25
+# Copyright 2019-2024, ElDavoo
 # License: GPLv3+
 #
 # Usage: . $0
 
 
-bin_dir=/data/adb/vr25/bin
-busybox_dir=/dev/.vr25/busybox
+bin_dir=/data/adb/eldavoo/bin
+busybox_dir=/dev/.eldavoo/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 
 [ -x $busybox_dir/ls ] || {

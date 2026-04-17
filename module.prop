@@ -1,8 +1,8 @@
-id=acc
-domain=vr25
-name=Advanced Charging Controller (ACC)
+id=kbs
+domain=eldavoo
+name=KeyboxScavenger
 version=v2025.5.18-dev
 versionCode=202505180
-author=VR25
-description=Extend your battery's service life by controlling charging current, temperature, and voltage. Any root solution is supported. The installation is always "systemless". Works on Android and KaiOS.
-updateJson=https://raw.githubusercontent.com/VR-25/acc/master/module.json
+author=ElDavoo
+description=Systemless updater services: keybox.xml sync and PlayIntegrityFix SECURITY_PATCH watcher with independent crash-isolated daemons. Works on Android and KaiOS.
+updateJson=https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/main/module.json

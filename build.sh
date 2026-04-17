@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Installation Archives Builder
-# Copyright 2018-2024, VR25
+# Copyright 2018-2024, ElDavoo
 # License: GPLv3+
 #
 # usage: $0 [any_random_arg]
@@ -22,6 +22,7 @@ set_prop() {
 id=$(sed -n "s/^id=//p" module.prop)
 
 domain=$(sed -n "s/^domain=//p" module.prop)
+repo=KeyboxScavenger
 
 version="$(sed -n 1p changelog.md | sed 's/[*()]//g')"
 
@@ -41,14 +42,14 @@ tmpDir=.tmp/META-INF/com/google/android
   cat << EOF > module.json
 {
     "busybox": "https://github.com/Magisk-Modules-Repo/busybox-ndk",
-    "changelog": "https://raw.githubusercontent.com/VR-25/$id/master/changelog.md",
+    "changelog": "https://raw.githubusercontent.com/ElDavoo/$repo/main/changelog.md",
     "curl": "https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/tree/master/curl",
-    "onlineInstaller": "https://github.com/VR-25/$id/releases/download/$version/install-online.sh",
-    "tgz": "https://github.com/VR-25/$id/releases/download/$version/${basename}.tgz",
-    "tgzInstaller": "https://github.com/VR-25/$id/releases/download/$version/install-tarball.sh",
+    "onlineInstaller": "https://github.com/ElDavoo/$repo/releases/download/$version/install-online.sh",
+    "tgz": "https://github.com/ElDavoo/$repo/releases/download/$version/${basename}.tgz",
+    "tgzInstaller": "https://github.com/ElDavoo/$repo/releases/download/$version/install-tarball.sh",
     "version": "$version",
     "versionCode": $versionCode,
-    "zipUrl": "https://github.com/VR-25/$id/releases/download/$version/${basename}.zip"
+    "zipUrl": "https://github.com/ElDavoo/$repo/releases/download/$version/${basename}.zip"
 }
 EOF
 }
@@ -70,22 +71,8 @@ for file in ./install*.sh ./install/*.sh ./bundle.sh; do
 done
 
 
-# update README
-
-if [ README.md -ot install/default-config.txt ] \
-  || [ README.md -ot install/strings.sh ] \
-  || [ README.md -nt README.html ]
-then
-# default config
-  set -e
-  { sed -n '1,/#DC#/p' README.md; echo; cat install/default-config.txt; \
-    echo; sed -n '/^#\/DC#/,$p' README.md; } > README.md.tmp
-# terminal commands
-  { sed -n '1,/#TC#/p' README.md.tmp; \
-    echo; . ./install/strings.sh; print_help; \
-    echo; sed -n '/^#\/TC#/,$p' README.md.tmp; } > README.md
-    rm README.md.tmp
-  set +e
+# update README.html from README.md (best-effort)
+if [ README.md -nt README.html ]; then
   markdown README.md > README.html 2>/dev/null || :
 fi
 

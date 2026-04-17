@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Push and Install Zip
-# Copyright 2022-2024, VR25
+# Copyright 2022-2024, ElDavoo
 # License: GPLv3+
 #
 # usage: $0 [k] [adb device]
@@ -12,10 +12,10 @@ versionCode=${version#* }
 version=${version% *}
 zip=${id}_${version}_$versionCode
 zip=$(echo _builds/$zip/$zip*zip)
-dest=/sdcard/Download/acc.zip
+dest=/sdcard/Download/kbs.zip
 
 [ ".${1-}" != .k ] || {
-  dest=/data/usbmsc_mnt/acc.zip
+  dest=/data/usbmsc_mnt/kbs.zip
   shift
 }
 
