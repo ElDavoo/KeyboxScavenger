@@ -69,8 +69,17 @@ class KeyboxScavengerUserbot:
         await client.run_until_disconnected()
 
     def _register_handlers(self, client: TelegramClient, targets: list) -> None:
-        client.add_event_handler(self._handle_message, events.NewMessage(chats=targets))
-        client.add_event_handler(self._handle_message, events.MessageEdited(chats=targets))
+        @client.on(events.NewMessage(chats=targets))
+        async def on_new_message(event):
+            await self._handle_message(event)
+
+        @client.on(events.MessageEdited(chats=targets))
+        async def on_edited_message(event):
+            await self._handle_message(event)
+
+        # Keep references so the callbacks are retained on the instance.
+        self._on_new_message = on_new_message
+        self._on_edited_message = on_edited_message
 
     async def _resolve_targets(self, client: TelegramClient) -> list:
         resolved = []

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 from scavenger.userbot import KeyboxScavengerUserbot
 
@@ -10,8 +11,12 @@ class FakeClient:
     def __init__(self):
         self.registered_handlers = []
 
-    def add_event_handler(self, handler, event_builder):
-        self.registered_handlers.append((handler, event_builder))
+    def on(self, event_builder):
+        def decorator(handler):
+            self.registered_handlers.append((handler, event_builder))
+            return handler
+
+        return decorator
 
 
 class KeyboxScavengerUserbotTests(unittest.TestCase):
@@ -21,6 +26,7 @@ class KeyboxScavengerUserbotTests(unittest.TestCase):
         storage = Mock()
         userbot = KeyboxScavengerUserbot(settings=settings, validator=validator, storage=storage)
         client = FakeClient()
+        userbot._handle_message = AsyncMock()
 
         userbot._register_handlers(client, [12345, "test-channel"])
 
@@ -28,12 +34,15 @@ class KeyboxScavengerUserbotTests(unittest.TestCase):
         first_handler, first_builder = client.registered_handlers[0]
         second_handler, second_builder = client.registered_handlers[1]
 
-        self.assertIs(first_handler.__self__, userbot)
-        self.assertIs(second_handler.__self__, userbot)
-        self.assertIs(first_handler.__func__, userbot._handle_message.__func__)
-        self.assertIs(second_handler.__func__, userbot._handle_message.__func__)
         self.assertEqual(first_builder.__class__.__name__, "NewMessage")
         self.assertEqual(second_builder.__class__.__name__, "MessageEdited")
+
+        fake_event = object()
+        asyncio.run(first_handler(fake_event))
+        asyncio.run(second_handler(fake_event))
+
+        self.assertEqual(userbot._handle_message.await_count, 2)
+        userbot._handle_message.assert_any_await(fake_event)
 
 
 if __name__ == "__main__":
