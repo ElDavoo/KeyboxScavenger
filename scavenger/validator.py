@@ -4,8 +4,10 @@ import asyncio
 import json
 import time
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import aiohttp
 from cryptography import x509
@@ -14,8 +16,10 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding
 from loguru import logger
 
-from scavenger.config import ScavengerSettings
 from scavenger.models import ValidationResult
+
+if TYPE_CHECKING:
+    from scavenger.config import ScavengerSettings
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROOT_GOOGLE_PEM_PATH = PROJECT_ROOT / "res/pem/google.pem"
@@ -23,13 +27,23 @@ ROOT_AOSP_EC_PEM_PATH = PROJECT_ROOT / "res/pem/aosp_ec.pem"
 ROOT_AOSP_RSA_PEM_PATH = PROJECT_ROOT / "res/pem/aosp_rsa.pem"
 ROOT_KNOX_PEM_PATH = PROJECT_ROOT / "res/pem/knox.pem"
 
+T = TypeVar("T")
+
+
+@dataclass
+class RemoteCache(Generic[T]):
+    fetched_at: float
+    data: T
+    etag: str | None
+    last_modified: str | None
+
 
 class KeyboxValidator:
-    def __init__(self, settings: ScavengerSettings):
+    def __init__(self, settings: "ScavengerSettings"):
         self.settings = settings
         self._timeout = aiohttp.ClientTimeout(total=settings.request_timeout_seconds)
-        self._banned_cache: tuple[float, list[str]] | None = None
-        self._revocation_cache: tuple[float, dict] | None = None
+        self._banned_cache: RemoteCache[list[str]] | None = None
+        self._revocation_cache: RemoteCache[dict] | None = None
 
         self._google_public_key = self._load_public_key(ROOT_GOOGLE_PEM_PATH)
         self._aosp_ec_public_key = self._load_public_key(ROOT_AOSP_EC_PEM_PATH)
@@ -210,41 +224,69 @@ class KeyboxValidator:
     async def _load_revocation_status(self) -> dict:
         cache = self._revocation_cache
         now = time.time()
-        if cache and (now - cache[0]) < self.settings.cache_ttl_seconds:
-            return cache[1]
+        if cache and (now - cache.fetched_at) < self.settings.cache_ttl_seconds:
+            return cache.data
+
+        if cache:
+            is_unchanged = await self._is_remote_unchanged(
+                self.settings.revocation_url,
+                cache,
+            )
+            if is_unchanged:
+                cache.fetched_at = now
+                return cache.data
 
         headers = {
             "Cache-Control": "max-age=0, no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
         }
-        params = {"ts": int(now)}
 
         try:
-            status_json = await self._request_json(
+            status_json, etag, last_modified = await self._request_json(
                 self.settings.revocation_url,
                 headers=headers,
-                params=params,
             )
         except Exception:
             with open(self.settings.revocation_fallback_path, "r", encoding="utf-8") as handle:
                 status_json = json.load(handle)
+            etag = None
+            last_modified = None
 
         if "entries" not in status_json or not isinstance(status_json["entries"], dict):
             raise ValueError("Invalid revocation status payload")
 
-        self._revocation_cache = (now, status_json)
+        self._revocation_cache = RemoteCache(
+            fetched_at=now,
+            data=status_json,
+            etag=etag,
+            last_modified=last_modified,
+        )
         return status_json
 
     async def _fetch_banned_serials(self) -> list[str]:
         cache = self._banned_cache
         now = time.time()
-        if cache and (now - cache[0]) < self.settings.cache_ttl_seconds:
-            return cache[1]
+        if cache and (now - cache.fetched_at) < self.settings.cache_ttl_seconds:
+            return cache.data
 
-        text = await self._request_text(self.settings.banned_serials_url)
+        if cache:
+            is_unchanged = await self._is_remote_unchanged(
+                self.settings.banned_serials_url,
+                cache,
+            )
+            if is_unchanged:
+                cache.fetched_at = now
+                return cache.data
+
+        text, etag, last_modified = await self._request_text(self.settings.banned_serials_url)
         banned_serials = [line.strip().lower() for line in text.splitlines() if line.strip()]
-        self._banned_cache = (now, banned_serials)
+        self._banned_cache = RemoteCache(
+            fetched_at=now,
+            data=banned_serials,
+            etag=etag,
+            last_modified=last_modified,
+        )
         return banned_serials
 
     def _load_leaked_serials(self) -> set[str]:
@@ -259,7 +301,7 @@ class KeyboxValidator:
             logger.error("Failed to load leaked serials: {}", exc)
             return set()
 
-    async def _request_text(self, url: str) -> str:
+    async def _request_text(self, url: str) -> tuple[str, str | None, str | None]:
         last_error: Exception | None = None
 
         for attempt in range(self.settings.network_retries + 1):
@@ -268,7 +310,11 @@ class KeyboxValidator:
                     async with session.get(url) as response:
                         if response.status != 200:
                             raise ValueError(f"Unexpected status {response.status} for {url}")
-                        return await response.text()
+                        return (
+                            await response.text(),
+                            response.headers.get("ETag"),
+                            response.headers.get("Last-Modified"),
+                        )
             except Exception as exc:
                 last_error = exc
                 if attempt < self.settings.network_retries:
@@ -276,7 +322,12 @@ class KeyboxValidator:
 
         raise RuntimeError(f"Request failed for {url}: {last_error}") from last_error
 
-    async def _request_json(self, url: str, headers: dict | None = None, params: dict | None = None) -> dict:
+    async def _request_json(
+        self,
+        url: str,
+        headers: dict | None = None,
+        params: dict | None = None,
+    ) -> tuple[dict, str | None, str | None]:
         last_error: Exception | None = None
 
         for attempt in range(self.settings.network_retries + 1):
@@ -285,13 +336,84 @@ class KeyboxValidator:
                     async with session.get(url, headers=headers, params=params) as response:
                         if response.status != 200:
                             raise ValueError(f"Unexpected status {response.status} for {url}")
-                        return await response.json()
+                        return (
+                            await response.json(),
+                            response.headers.get("ETag"),
+                            response.headers.get("Last-Modified"),
+                        )
             except Exception as exc:
                 last_error = exc
                 if attempt < self.settings.network_retries:
                     await asyncio.sleep(0.5 * (attempt + 1))
 
         raise RuntimeError(f"Request failed for {url}: {last_error}") from last_error
+
+    async def _request_head_metadata(
+        self,
+        url: str,
+        headers: dict | None = None,
+        params: dict | None = None,
+    ) -> tuple[str | None, str | None] | None:
+        last_error: Exception | None = None
+
+        for attempt in range(self.settings.network_retries + 1):
+            try:
+                async with aiohttp.ClientSession(timeout=self._timeout) as session:
+                    async with session.head(
+                        url,
+                        headers=headers,
+                        params=params,
+                        allow_redirects=True,
+                    ) as response:
+                        if response.status in {405, 501}:
+                            return None
+                        if response.status != 200:
+                            raise ValueError(f"Unexpected HEAD status {response.status} for {url}")
+
+                        etag = response.headers.get("ETag")
+                        last_modified = response.headers.get("Last-Modified")
+                        if etag is None and last_modified is None:
+                            return None
+                        return etag, last_modified
+            except Exception as exc:
+                last_error = exc
+                if attempt < self.settings.network_retries:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+
+        raise RuntimeError(f"HEAD request failed for {url}: {last_error}") from last_error
+
+    async def _is_remote_unchanged(self, url: str, cache: RemoteCache[object]) -> bool:
+        try:
+            metadata = await self._request_head_metadata(url)
+        except Exception as exc:
+            logger.warning("HEAD metadata check failed for {}: {}", url, exc)
+            return False
+
+        if metadata is None:
+            return False
+
+        etag, last_modified = metadata
+        return self._metadata_matches(cache, etag, last_modified)
+
+    @staticmethod
+    def _metadata_matches(
+        cache: RemoteCache[object],
+        etag: str | None,
+        last_modified: str | None,
+    ) -> bool:
+        comparable = False
+
+        if cache.etag is not None and etag is not None:
+            comparable = True
+            if cache.etag != etag:
+                return False
+
+        if cache.last_modified is not None and last_modified is not None:
+            comparable = True
+            if cache.last_modified != last_modified:
+                return False
+
+        return comparable
 
     @staticmethod
     def _parse_number_of_certificates(root: ET.Element) -> list[int]:

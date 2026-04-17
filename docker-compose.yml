@@ -23,7 +23,7 @@ services:
     volumes:
       - ./res:/app/res:ro
       - ./leaks.txt:/app/leaks.txt:ro
-      - keybox_data:/app/data/keyboxes
+      - ./keyboxes:/app/data/keyboxes
       - session_data:/app/data/session
       - logs_data:/app/logs
     read_only: true

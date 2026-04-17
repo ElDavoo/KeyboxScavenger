@@ -6,3 +6,4 @@ data/
 *.session
 .pdm-python
 test_keyboxes
+keyboxes
