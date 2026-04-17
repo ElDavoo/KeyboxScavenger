@@ -2,10 +2,10 @@
     "busybox": "https://github.com/Magisk-Modules-Repo/busybox-ndk",
     "changelog": "https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/main/changelog.md",
     "curl": "https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/tree/master/curl",
-    "onlineInstaller": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2025.5.18-dev/install-online.sh",
-    "tgz": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2025.5.18-dev/kbs_v2025.5.18-dev_202505180.tgz",
-    "tgzInstaller": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2025.5.18-dev/install-tarball.sh",
-    "version": "v2025.5.18-dev",
-    "versionCode": 202505180,
-    "zipUrl": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2025.5.18-dev/kbs_v2025.5.18-dev_202505180.zip"
+    "onlineInstaller": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.18-dev/install-online.sh",
+    "tgz": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.18-dev/kbs_v2026.04.18-dev_202604180.tgz",
+    "tgzInstaller": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.18-dev/install-tarball.sh",
+    "version": "v2026.04.18",
+    "versionCode": 202604180,
+    "zipUrl": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.18-dev/kbs_v2026.04.18-dev_202604180.zip"
 }
