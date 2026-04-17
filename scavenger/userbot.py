@@ -64,11 +64,13 @@ class KeyboxScavengerUserbot:
 
         logger.info("Watching {} targets", len(targets))
 
-        @client.on(events.NewMessage(chats=targets))
-        async def on_message(event):
-            await self._handle_message(event)
+        self._register_handlers(client, targets)
 
         await client.run_until_disconnected()
+
+    def _register_handlers(self, client: TelegramClient, targets: list) -> None:
+        client.add_event_handler(self._handle_message, events.NewMessage(chats=targets))
+        client.add_event_handler(self._handle_message, events.MessageEdited(chats=targets))
 
     async def _resolve_targets(self, client: TelegramClient) -> list:
         resolved = []
