@@ -1,12 +1,61 @@
-version: '3.8'
-
 services:
-  bot:
+  keybox-scavenger:
     build:
       context: .
       dockerfile: Dockerfile
+    image: keybox-scavenger:local
+    environment:
+      SCAVENGER_API_ID: ${SCAVENGER_API_ID:-}
+      SCAVENGER_API_HASH: ${SCAVENGER_API_HASH:-}
+      SCAVENGER_TARGETS: ${SCAVENGER_TARGETS:-}
+      SCAVENGER_SESSION_STRING: ${SCAVENGER_SESSION_STRING:-}
+      SCAVENGER_SESSION_NAME: ${SCAVENGER_SESSION_NAME:-/app/data/session/scavenger}
+      SCAVENGER_OUTPUT_DIR: ${SCAVENGER_OUTPUT_DIR:-/app/data/keyboxes}
+      SCAVENGER_MAX_XML_SIZE: ${SCAVENGER_MAX_XML_SIZE:-20480}
+      SCAVENGER_REQUEST_TIMEOUT_SECONDS: ${SCAVENGER_REQUEST_TIMEOUT_SECONDS:-15}
+      SCAVENGER_NETWORK_RETRIES: ${SCAVENGER_NETWORK_RETRIES:-2}
+      SCAVENGER_CACHE_TTL_SECONDS: ${SCAVENGER_CACHE_TTL_SECONDS:-300}
+      SCAVENGER_LOG_LEVEL: ${SCAVENGER_LOG_LEVEL:-INFO}
+      SCAVENGER_BANNED_SERIALS_URL: ${SCAVENGER_BANNED_SERIALS_URL:-https://raw.githubusercontent.com/daboynb/autojson/refs/heads/main/banned.txt}
+      SCAVENGER_REVOCATION_URL: ${SCAVENGER_REVOCATION_URL:-https://android.googleapis.com/attestation/status}
+      SCAVENGER_REVOCATION_FALLBACK_PATH: ${SCAVENGER_REVOCATION_FALLBACK_PATH:-/app/res/json/status.json}
+      SCAVENGER_LEAKED_SERIALS_PATH: ${SCAVENGER_LEAKED_SERIALS_PATH:-/app/leaks.txt}
     volumes:
-      - ./conf_dir:/app/conf_dir
-      - ./logs:/app/logs
-      - ./leaks.txt:/app/leaks.txt
+      - ./res:/app/res:ro
+      - ./leaks.txt:/app/leaks.txt:ro
+      - keybox_data:/app/data/keyboxes
+      - session_data:/app/data/session
+      - logs_data:/app/logs
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 20s
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,sys; sys.exit(0 if pathlib.Path('/app/data/keyboxes').exists() else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+volumes:
+  keybox_data:
+  session_data:
+  logs_data:

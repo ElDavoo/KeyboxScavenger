@@ -9,21 +9,15 @@ dependencies = [
     "pydantic<3.0.0,>=2.0.0",
     "pydantic-settings<3.0.0,>=2.1.0",
     "python-dotenv<2.0.0,>=1.0.0",
-    "pytelegrambotapi<5.0.0,>=4.14.0",
+    "telethon<2.0.0,>=1.36.0",
     "loguru<1.0.0,>=0.7.0",
-    "elara<1.0.0,>=0.5.5",
-    "httpx<1.0.0,>=0.25.1",
-    "shortuuid<2.0.0,>=1.0.11",
-    "asgiref<4.0.0,>=3.7.2",
     "aiohttp>=3.9.0",
-    "dynaconf>=3.2.4",
-    "pre-commit>=3.5.0",
     "cryptography>=43.0.0",
 ]
 
 
 
-requires-python = ">=3.8"
+requires-python = ">=3.14"
 readme = "README.md"
 license = { text = "AGPL-3.0" }
 
@@ -59,8 +53,8 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.8
-target-version = "py38"
+# Assume Python 3.14
+target-version = "py314"
 
 [tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
@@ -88,3 +82,6 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.pdm]
+
+[tool.pdm.scripts]
+scavenger = "python scavenger_main.py"

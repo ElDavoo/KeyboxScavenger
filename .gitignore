@@ -1,1 +1,8 @@
 .env
+__pycache__/
+*.pyc
+logs/
+data/
+*.session
+.pdm-python
+test_keyboxes

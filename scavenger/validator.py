@@ -1,0 +1,423 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import time
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from pathlib import Path
+
+import aiohttp
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, padding
+from loguru import logger
+
+from scavenger.config import ScavengerSettings
+from scavenger.models import ValidationResult
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ROOT_GOOGLE_PEM_PATH = PROJECT_ROOT / "res/pem/google.pem"
+ROOT_AOSP_EC_PEM_PATH = PROJECT_ROOT / "res/pem/aosp_ec.pem"
+ROOT_AOSP_RSA_PEM_PATH = PROJECT_ROOT / "res/pem/aosp_rsa.pem"
+ROOT_KNOX_PEM_PATH = PROJECT_ROOT / "res/pem/knox.pem"
+
+
+class KeyboxValidator:
+    def __init__(self, settings: ScavengerSettings):
+        self.settings = settings
+        self._timeout = aiohttp.ClientTimeout(total=settings.request_timeout_seconds)
+        self._banned_cache: tuple[float, list[str]] | None = None
+        self._revocation_cache: tuple[float, dict] | None = None
+
+        self._google_public_key = self._load_public_key(ROOT_GOOGLE_PEM_PATH)
+        self._aosp_ec_public_key = self._load_public_key(ROOT_AOSP_EC_PEM_PATH)
+        self._aosp_rsa_public_key = self._load_public_key(ROOT_AOSP_RSA_PEM_PATH)
+        self._knox_public_key = self._load_public_key(ROOT_KNOX_PEM_PATH)
+
+    def _load_public_key(self, file_path: Path):
+        with open(file_path, "rb") as key_file:
+            return serialization.load_pem_public_key(
+                key_file.read(),
+                backend=default_backend(),
+            )
+
+    @staticmethod
+    def _compare_keys(public_key1, public_key2) -> bool:
+        return public_key1.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ) == public_key2.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+
+    async def validate(self, xml_payload: bytes) -> ValidationResult:
+        reasons: list[str] = []
+
+        if len(xml_payload) > self.settings.max_xml_size:
+            return ValidationResult(is_valid=False, reasons=["File size is too large"])
+
+        try:
+            banned_serials = await self._fetch_banned_serials()
+        except Exception as exc:
+            logger.error("Failed to fetch banned serials: {}", exc)
+            return ValidationResult(
+                is_valid=False,
+                reasons=["Failed to load the list of banned serial numbers."],
+            )
+
+        leaked_serials = self._load_leaked_serials()
+
+        try:
+            status_json = await self._load_revocation_status()
+        except Exception as exc:
+            logger.error("Failed to load revocation list: {}", exc)
+            return ValidationResult(is_valid=False, reasons=["Failed to load revocation list."])
+
+        try:
+            root = ET.fromstring(xml_payload)
+            pem_numbers = self._parse_number_of_certificates(root)
+            max_pem_number = max(pem_numbers)
+            if max_pem_number < 3:
+                reasons.append(
+                    "Insufficient certificates in the keychain. A minimum of 3 certificates is required."
+                )
+            pem_certificates = self._parse_certificates(root, max_pem_number)
+        except Exception as exc:
+            return ValidationResult(is_valid=False, reasons=[str(exc)])
+
+        certificates: list[x509.Certificate] = []
+        try:
+            for pem_certificate in pem_certificates:
+                certificate = x509.load_pem_x509_certificate(
+                    pem_certificate.encode(),
+                    default_backend(),
+                )
+                certificates.append(certificate)
+        except Exception as exc:
+            return ValidationResult(is_valid=False, reasons=[str(exc)])
+
+        revoked_certificates: list[str] = []
+        certificate_serials: list[str] = []
+
+        nearest_expiration_date: datetime | None = None
+        any_certificate_expired = False
+        has_banned_serial = False
+        has_leaked_serial = False
+
+        entries = status_json.get("entries", {})
+
+        for certificate in reversed(certificates):
+            serial_number_string = hex(certificate.serial_number)[2:].lower()
+            certificate_serials.append(serial_number_string)
+
+            subject_serial_number = self._subject_serial_number(certificate)
+            if subject_serial_number and subject_serial_number in banned_serials:
+                has_banned_serial = True
+
+            current_time = datetime.utcnow()
+            not_valid_before = certificate.not_valid_before
+            not_valid_after = certificate.not_valid_after
+
+            if current_time > not_valid_after:
+                any_certificate_expired = True
+
+            if nearest_expiration_date is None or not_valid_after < nearest_expiration_date:
+                nearest_expiration_date = not_valid_after
+
+            if serial_number_string in banned_serials:
+                has_banned_serial = True
+
+            if serial_number_string in leaked_serials:
+                has_leaked_serial = True
+
+            status = entries.get(serial_number_string)
+            if status is not None:
+                revoked_certificates.append(serial_number_string)
+
+        chain_is_valid = self._verify_certificate_chain(certificates)
+
+        root_certificate = certificates[-1]
+        root_public_key = root_certificate.public_key()
+        certificate_type: str | None = None
+        if self._compare_keys(root_public_key, self._google_public_key):
+            certificate_type = "hardware"
+        elif self._compare_keys(root_public_key, self._aosp_ec_public_key):
+            certificate_type = "software"
+        elif self._compare_keys(root_public_key, self._aosp_rsa_public_key):
+            certificate_type = "software"
+        elif self._compare_keys(root_public_key, self._knox_public_key):
+            certificate_type = "knox"
+
+        is_within_validity = all(
+            cert.not_valid_before <= datetime.utcnow() <= cert.not_valid_after
+            for cert in certificates
+        )
+        is_correct_root = certificate_type in {"hardware", "knox"}
+        is_not_revoked = not revoked_certificates
+        is_not_banned = not has_banned_serial
+        is_not_leaked = not has_leaked_serial
+
+        special_serial_violation = self._has_special_serial_violation(certificates)
+
+        is_valid_keychain = (
+            len(certificates) >= 3
+            and is_within_validity
+            and chain_is_valid
+            and is_not_revoked
+            and is_correct_root
+            and is_not_banned
+            and is_not_leaked
+            and not special_serial_violation
+        )
+
+        if len(certificates) < 3:
+            reasons.append("Certificate chain is shorter than 3 certificates")
+        if not is_within_validity:
+            reasons.append("At least one certificate is outside its validity period")
+        if not chain_is_valid:
+            reasons.append("Invalid certificate chain")
+        if revoked_certificates:
+            reasons.append("Serial number found in Google's revoked keybox list")
+        if not is_correct_root:
+            if certificate_type == "software":
+                reasons.append("AOSP software root certificate is not accepted")
+            elif any_certificate_expired:
+                reasons.append("Unknown root certificate due to expiration of a certificate")
+            else:
+                reasons.append("Unknown root certificate")
+        if has_banned_serial:
+            reasons.append("Banned serial detected")
+        if has_leaked_serial:
+            reasons.append("Leaked serial detected")
+        if special_serial_violation:
+            reasons.append("Serial f92009e853b6b045 is only allowed on certificate 3 or 4")
+
+        return ValidationResult(
+            is_valid=is_valid_keychain,
+            reasons=reasons,
+            certificate_serials=certificate_serials,
+            revoked_serials=revoked_certificates,
+            certificate_type=certificate_type,
+            has_banned_serial=has_banned_serial,
+            has_leaked_serial=has_leaked_serial,
+            special_serial_violation=special_serial_violation,
+            nearest_expiration_date=nearest_expiration_date,
+        )
+
+    async def _load_revocation_status(self) -> dict:
+        cache = self._revocation_cache
+        now = time.time()
+        if cache and (now - cache[0]) < self.settings.cache_ttl_seconds:
+            return cache[1]
+
+        headers = {
+            "Cache-Control": "max-age=0, no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        }
+        params = {"ts": int(now)}
+
+        try:
+            status_json = await self._request_json(
+                self.settings.revocation_url,
+                headers=headers,
+                params=params,
+            )
+        except Exception:
+            with open(self.settings.revocation_fallback_path, "r", encoding="utf-8") as handle:
+                status_json = json.load(handle)
+
+        if "entries" not in status_json or not isinstance(status_json["entries"], dict):
+            raise ValueError("Invalid revocation status payload")
+
+        self._revocation_cache = (now, status_json)
+        return status_json
+
+    async def _fetch_banned_serials(self) -> list[str]:
+        cache = self._banned_cache
+        now = time.time()
+        if cache and (now - cache[0]) < self.settings.cache_ttl_seconds:
+            return cache[1]
+
+        text = await self._request_text(self.settings.banned_serials_url)
+        banned_serials = [line.strip().lower() for line in text.splitlines() if line.strip()]
+        self._banned_cache = (now, banned_serials)
+        return banned_serials
+
+    def _load_leaked_serials(self) -> set[str]:
+        try:
+            with open(self.settings.leaked_serials_path, "r", encoding="utf-8") as file_handle:
+                return {
+                    line.strip().lower()
+                    for line in file_handle.readlines()
+                    if line.strip()
+                }
+        except Exception as exc:
+            logger.error("Failed to load leaked serials: {}", exc)
+            return set()
+
+    async def _request_text(self, url: str) -> str:
+        last_error: Exception | None = None
+
+        for attempt in range(self.settings.network_retries + 1):
+            try:
+                async with aiohttp.ClientSession(timeout=self._timeout) as session:
+                    async with session.get(url) as response:
+                        if response.status != 200:
+                            raise ValueError(f"Unexpected status {response.status} for {url}")
+                        return await response.text()
+            except Exception as exc:
+                last_error = exc
+                if attempt < self.settings.network_retries:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+
+        raise RuntimeError(f"Request failed for {url}: {last_error}") from last_error
+
+    async def _request_json(self, url: str, headers: dict | None = None, params: dict | None = None) -> dict:
+        last_error: Exception | None = None
+
+        for attempt in range(self.settings.network_retries + 1):
+            try:
+                async with aiohttp.ClientSession(timeout=self._timeout) as session:
+                    async with session.get(url, headers=headers, params=params) as response:
+                        if response.status != 200:
+                            raise ValueError(f"Unexpected status {response.status} for {url}")
+                        return await response.json()
+            except Exception as exc:
+                last_error = exc
+                if attempt < self.settings.network_retries:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+
+        raise RuntimeError(f"Request failed for {url}: {last_error}") from last_error
+
+    @staticmethod
+    def _parse_number_of_certificates(root: ET.Element) -> list[int]:
+        certificates_counts = root.findall(".//NumberOfCertificates")
+        if not certificates_counts:
+            raise Exception("No NumberOfCertificates found.")
+
+        counts = []
+        for certificate in certificates_counts:
+            if certificate.text is None:
+                raise ValueError("Invalid NumberOfCertificates node")
+            counts.append(int(certificate.text.strip()))
+        return counts
+
+    @staticmethod
+    def _parse_certificates(root: ET.Element, pem_number: int) -> list[str]:
+        pem_certificates: list[str] = []
+
+        for keybox in root.findall(".//Keybox"):
+            for key in keybox.findall("Key"):
+                for certificate in key.findall('.//Certificate[@format="pem"]'):
+                    if certificate.text is None:
+                        continue
+                    pem_certificates.append(certificate.text.strip())
+                    if len(pem_certificates) == pem_number:
+                        break
+                if len(pem_certificates) == pem_number:
+                    break
+            if len(pem_certificates) == pem_number:
+                break
+
+        if not pem_certificates:
+            raise Exception("No Certificate found.")
+        return pem_certificates
+
+    @staticmethod
+    def _subject_serial_number(certificate: x509.Certificate) -> str | None:
+        for attr in certificate.subject:
+            if attr.oid._name == "serialNumber":
+                return attr.value.lower()
+        return None
+
+    @staticmethod
+    def _verify_certificate_chain(certificates: list[x509.Certificate]) -> bool:
+        for index in range(len(certificates) - 1):
+            child = certificates[index]
+            parent = certificates[index + 1]
+
+            if child.issuer != parent.subject:
+                return False
+
+            signature = child.signature
+            signature_algorithm = child.signature_algorithm_oid._name
+            tbs_certificate = child.tbs_certificate_bytes
+            public_key = parent.public_key()
+
+            try:
+                if signature_algorithm in {
+                    "sha256WithRSAEncryption",
+                    "sha1WithRSAEncryption",
+                    "sha384WithRSAEncryption",
+                    "sha512WithRSAEncryption",
+                }:
+                    hash_algorithm = {
+                        "sha256WithRSAEncryption": hashes.SHA256(),
+                        "sha1WithRSAEncryption": hashes.SHA1(),
+                        "sha384WithRSAEncryption": hashes.SHA384(),
+                        "sha512WithRSAEncryption": hashes.SHA512(),
+                    }[signature_algorithm]
+                    public_key.verify(
+                        signature,
+                        tbs_certificate,
+                        padding.PKCS1v15(),
+                        hash_algorithm,
+                    )
+                elif signature_algorithm in {
+                    "ecdsa-with-SHA256",
+                    "ecdsa-with-SHA1",
+                    "ecdsa-with-SHA384",
+                    "ecdsa-with-SHA512",
+                }:
+                    hash_algorithm = {
+                        "ecdsa-with-SHA256": hashes.SHA256(),
+                        "ecdsa-with-SHA1": hashes.SHA1(),
+                        "ecdsa-with-SHA384": hashes.SHA384(),
+                        "ecdsa-with-SHA512": hashes.SHA512(),
+                    }[signature_algorithm]
+                    public_key.verify(
+                        signature,
+                        tbs_certificate,
+                        ec.ECDSA(hash_algorithm),
+                    )
+                else:
+                    return False
+            except Exception:
+                return False
+
+        return True
+
+    @staticmethod
+    def _has_special_serial_violation(certificates: list[x509.Certificate]) -> bool:
+        special_serial = "f92009e853b6b045"
+        cert_count = len(certificates)
+        allowed_index = 2 if cert_count == 3 else 3 if cert_count > 3 else None
+
+        for index, certificate in enumerate(certificates):
+            cert_serial = hex(certificate.serial_number)[2:].lower()
+            subject_serial = None
+            for attr in certificate.subject:
+                if attr.oid._name == "serialNumber":
+                    subject_serial = attr.value.lower()
+                    break
+
+            if cert_serial == special_serial or subject_serial == special_serial:
+                if allowed_index is None or index != allowed_index:
+                    return True
+
+        total_count = 0
+        for certificate in certificates:
+            cert_serial = hex(certificate.serial_number)[2:].lower()
+            if cert_serial == special_serial:
+                total_count += 1
+                continue
+            for attr in certificate.subject:
+                if attr.oid._name == "serialNumber" and attr.value.lower() == special_serial:
+                    total_count += 1
+                    break
+
+        return total_count > 1
