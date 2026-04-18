@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
+from collections import Counter
 import hashlib
 import json
+import re
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -27,6 +31,11 @@ ROOT_GOOGLE_PEM_PATH = PROJECT_ROOT / "res/pem/google.pem"
 ROOT_AOSP_EC_PEM_PATH = PROJECT_ROOT / "res/pem/aosp_ec.pem"
 ROOT_AOSP_RSA_PEM_PATH = PROJECT_ROOT / "res/pem/aosp_rsa.pem"
 ROOT_KNOX_PEM_PATH = PROJECT_ROOT / "res/pem/knox.pem"
+
+_PEM_BEGIN = "-----BEGIN CERTIFICATE-----"
+_PEM_END = "-----END CERTIFICATE-----"
+_B64_LINE = re.compile(r"^[A-Za-z0-9+/=]+$")
+_WS = re.compile(r"\s+")
 
 T = TypeVar("T")
 
@@ -472,7 +481,9 @@ class KeyboxValidator:
                 for certificate in key.findall('.//Certificate[@format="pem"]'):
                     if certificate.text is None:
                         continue
-                    pem_certificates.append(certificate.text.strip())
+                    pem_certificates.append(
+                        KeyboxValidator._sanitize_pem_certificate(certificate.text)
+                    )
                     if len(pem_certificates) == pem_number:
                         break
                 if len(pem_certificates) == pem_number:
@@ -483,6 +494,66 @@ class KeyboxValidator:
         if not pem_certificates:
             raise Exception("No Certificate found.")
         return pem_certificates
+
+    @staticmethod
+    def _sanitize_pem_certificate(raw: str) -> str:
+        if not raw:
+            raise ValueError("Empty certificate content")
+
+        text = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+        begin_idx = text.find(_PEM_BEGIN)
+        if begin_idx != -1:
+            end_idx = text.find(_PEM_END, begin_idx + len(_PEM_BEGIN))
+            if end_idx != -1:
+                text = text[begin_idx + len(_PEM_BEGIN):end_idx]
+
+        runs: list[list[str]] = []
+        current: list[str] = []
+        for line in text.splitlines():
+            stripped = _WS.sub("", line)
+            if not stripped:
+                # Ignore blank lines: some generators inject them into PEM content.
+                continue
+
+            if stripped.startswith("-----"):
+                if current:
+                    runs.append(current)
+                    current = []
+                continue
+
+            if _B64_LINE.fullmatch(stripped):
+                current.append(stripped)
+            elif current:
+                runs.append(current)
+                current = []
+
+        if current:
+            runs.append(current)
+
+        if not runs:
+            raise ValueError("Certificate contains no recoverable base64 data")
+
+        best = max(runs, key=lambda run: sum(len(segment) for segment in run))
+        if len(best) > 1:
+            modal_len, _ = Counter(len(segment) for segment in best).most_common(1)[0]
+            body = [segment for segment in best if len(segment) == modal_len]
+            last_full_index = max(
+                index for index, segment in enumerate(best) if len(segment) == modal_len
+            )
+            if last_full_index + 1 < len(best) and len(best[last_full_index + 1]) < modal_len:
+                body.append(best[last_full_index + 1])
+            best = body
+
+        payload = "".join(best)
+        padding = (-len(payload)) % 4
+        try:
+            der = base64.b64decode(payload + "=" * padding, validate=False)
+        except binascii.Error as exc:
+            raise ValueError(f"Certificate base64 payload is not decodable: {exc}")
+
+        payload = base64.b64encode(der).decode("ascii")
+        wrapped = "\n".join(payload[index:index + 64] for index in range(0, len(payload), 64))
+        return f"{_PEM_BEGIN}\n{wrapped}\n{_PEM_END}\n"
 
     @staticmethod
     def _subject_serial_number(certificate: x509.Certificate) -> str | None:
