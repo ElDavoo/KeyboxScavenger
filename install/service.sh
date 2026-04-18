@@ -5,13 +5,15 @@
 
 id=kbs
 domain=eldavoo
-execDir=/data/adb/$domain/$id
+execDir=/data/adb/modules/$id
 
-keyboxTmp=/dev/.$domain/$id
-keyboxData=/data/adb/$domain/${id}-data
+runtimeRoot=$execDir/.run
+dataRoot=$execDir/.data
+keyboxTmp=$runtimeRoot/keybox
+keyboxData=$dataRoot/keybox
 pifId=pif
-pifTmp=/dev/.$domain/$pifId
-pifData=/data/adb/$domain/${pifId}-data
+pifTmp=$runtimeRoot/pif
+pifData=$dataRoot/pif
 
 [ -f $execDir/disable -o -f $keyboxData/disable ] && exit 14
 

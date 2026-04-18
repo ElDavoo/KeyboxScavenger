@@ -16,7 +16,7 @@ Systemless Magisk/Root module that runs two independent background services:
 - Parses:
   - `SECURITY_PATCH=YYYY-MM-DD`
 - If patch date is at least 30 days old, runs:
-  - `/system/bin/sh /data/adb/modules/playintegrityfix/action.sh`
+  - `/data/adb/modules/playintegrityfix/action.sh` with `/data/adb/modules/kbs/.busybox/ash`
 - Runs immediately when stale is detected, then once per day until `SECURITY_PATCH` changes.
 
 ## Crash Isolation
@@ -31,10 +31,10 @@ A crash in one service does not stop the other.
 
 ## Paths
 
-- Keybox service lock: `/dev/.eldavoo/kbs/kbs.lock`
-- PIF service lock: `/dev/.eldavoo/pif/pif.lock`
-- Keybox logs/state: `/data/adb/eldavoo/kbs-data/`
-- PIF logs/state: `/data/adb/eldavoo/pif-data/`
+- Keybox service lock: `/data/adb/modules/kbs/.run/keybox/kbs.lock`
+- PIF service lock: `/data/adb/modules/kbs/.run/pif/pif.lock`
+- Keybox logs/state: `/data/adb/modules/kbs/.data/keybox/`
+- PIF logs/state: `/data/adb/modules/kbs/.data/pif/`
 
 ## CLI
 

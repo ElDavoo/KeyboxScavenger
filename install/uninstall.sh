@@ -7,17 +7,18 @@
 set -u
 id=kbs
 domain=eldavoo
-export TMPDIR=/dev/.$domain/$id
-pifTMPDIR=/dev/.$domain/pif
+execDir=/data/adb/modules/$id
+export TMPDIR=$execDir/.run/keybox
+pifTMPDIR=$execDir/.run/pif
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/eldavoo/bin
-busybox_dir=/dev/.eldavoo/busybox
+bin_dir=/data/adb/modules/$id/bin
+busybox_dir=/data/adb/modules/$id/.busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
-  mkdir -p $busybox_dir
-  chmod 0755 $busybox_dir $bin_dir/busybox 2>/dev/null || :
+  mkdir -p $busybox_dir $bin_dir
+  chmod 0755 $busybox_dir $bin_dir $bin_dir/busybox 2>/dev/null || :
   for f in $bin_dir/busybox $magisk_busybox /system/*bin/busybox*; do
     [ -x $f ] && eval $f --install -s $busybox_dir/ && break || :
   done
@@ -63,8 +64,6 @@ rm -rf \
   /data/data/github.eldavoo.keyboxscavenger/files/$id \
   /data/data/com.termux/files/home/.termux/boot/${id}-init.sh
 
-[ "${1:-}" = install ] || rm -rf $(readlink -f /data/adb/$domain/$id) /data/adb/$domain/${id}-data
-[ "${1:-}" = install ] || rm -rf /data/adb/$domain/pif-data
-rmdir /data/adb/$domain
+[ "${1:-}" = install ] || rm -rf "$execDir/.data" "$execDir/.run"
 
 exit 0

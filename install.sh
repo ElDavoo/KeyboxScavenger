@@ -14,7 +14,7 @@ SKIPMOUNT=false
 echo
 id=kbs
 domain=eldavoo
-data_dir=/data/adb/$domain/${id}-data
+data_dir=/data/adb/modules/$id/.data/install
 
 
 # log
@@ -27,7 +27,7 @@ set -x
 exxit() {
   local e=$?
   set +eu
-  rm -rf /dev/.$domain.${id}-install
+  rm -rf /data/adb/modules/$id/.tmp-install
   $KSU || {
     rm -rf /data/adb/modules_update/$id
     (abort) > /dev/null
@@ -41,12 +41,12 @@ trap exxit EXIT
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/eldavoo/bin
-busybox_dir=/dev/.eldavoo/busybox
+bin_dir=/data/adb/modules/$id/bin
+busybox_dir=/data/adb/modules/$id/.busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
-  mkdir -p $busybox_dir
-  chmod 0755 $busybox_dir $bin_dir/busybox 2>/dev/null || :
+  mkdir -p $busybox_dir $bin_dir
+  chmod 0755 $busybox_dir $bin_dir $bin_dir/busybox 2>/dev/null || :
   for f in $bin_dir/busybox $magisk_busybox /system/*bin/busybox*; do
     [ -x $f ] && eval $f --install -s $busybox_dir/ && break || :
   done
@@ -98,9 +98,9 @@ srcDir="$(cd "${0%/*}" 2>/dev/null || :; echo "$PWD")"
 
 # extract flashable zip if source code is unavailable
 [ -d $srcDir/install ] || {
-  srcDir=/dev/.$domain.${id}-install
+  srcDir=/data/adb/modules/$id/.tmp-install
   rm -rf $srcDir 2>/dev/null || :
-  mkdir $srcDir
+  mkdir -p $srcDir
   unzip "${APK:-${ZIPFILE:-$3}}" -d $srcDir/ >&2
 }
 
@@ -141,9 +141,9 @@ fi
 
 # check/change parent installation directory
 ! $magisk || installDir=$magiskModDir
-[ $installDir != /data/adb/$domain ] || mkdir -p $installDir
+[ $installDir != $magiskModDir ] || mkdir -p $installDir
 [ -d $installDir ] || {
-  installDir=/data/adb/$domain
+  installDir=$magiskModDir
   mkdir -p $installDir
 }
 
@@ -159,7 +159,7 @@ Installing in $installDir/$id/..."
 # backup
 rm -rf $data_dir/backup 2>/dev/null || :
 mkdir -p $data_dir/backup
-cp -aH /data/adb/$domain/$id/* $config $data_dir/backup/ 2>/dev/null || :
+cp -aH /data/adb/modules/$id/* $config $data_dir/backup/ 2>/dev/null || :
 
 
 export KSU=${KSU:-false}
@@ -171,16 +171,7 @@ installDir=$(readlink -f $installDir/$id)
 cp $srcDir/module.prop $installDir/
 cp -f $srcDir/README.* $data_dir/
 
-
-# KaiOS patches
-[ ! -d /data/usbmsc_mnt/ ] || {
-  for i in $installDir/$id/*.sh; do
-    sed -Ei 's#/sdcard(/|/Download/)#/data/usbmsc_mnt/#g' $i
-  done
-}
-
-
-tmpd=/dev/.$domain/$id
+tmpd=/data/adb/modules/$id/.run/install
 mkdir -p $tmpd
 
 
@@ -198,7 +189,7 @@ mkdir -p $tmpd
 if [ -f $tmpd/.updated ]; then
   exec /dev/${i#*:} \"\$@\"
 else
-  exec . /data/adb/$domain/$id/${i%:*} \"\$@\"
+  exec . /data/adb/modules/$id/${i%:*} "\$@"
 fi" > $j
   done
 }
@@ -227,18 +218,12 @@ if $frontend; then
 
       sleep 60
 
-      [ -e $appFiles/$id ] || rm -rf \$0 /data/adb/$domain/$id /data/adb/modules/$id 2>/dev/null
+      [ -e $appFiles/$id ] || rm -rf \$0 /data/adb/modules/$id 2>/dev/null
 
       exit 0" | sed 's/^      //' > /data/adb/service.d/${id}-cleanup.sh
     chmod 0755 /data/adb/service.d/${id}-cleanup.sh
   }
 fi
-
-
-[ $installDir = /data/adb/$domain/$id ] || {
-  mkdir -p /data/adb/$domain
-  ln -sf $installDir /data/adb/$domain/
-}
 
 
 # install binaries
@@ -315,13 +300,13 @@ fi
 case $installDir in
   /data/adb/modules*) ;;
   *) $KSU || echo "
-Non-Magisk users can enable $id auto-start by running /data/adb/$domain/$id/service.sh, a copy of, or a link to it - with init.d or an app that emulates it.";;
+Non-Magisk users can enable $id auto-start by running /data/adb/modules/$id/service.sh, a copy of, or a link to it - with init.d or an app that emulates it.";;
 esac
 
 
 # initialize $id
 rm $data_dir/disable 2>/dev/null
-/data/adb/$domain/$id/service.sh --init
+/data/adb/modules/$id/service.sh --init
 
 
 # magic_overlayfs support

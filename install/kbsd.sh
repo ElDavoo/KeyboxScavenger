@@ -7,9 +7,9 @@ set -eu
 
 id=kbs
 domain=eldavoo
-execDir=/data/adb/$domain/$id
-dataDir=/data/adb/$domain/${id}-data
-TMPDIR=/dev/.$domain/$id
+execDir=/data/adb/modules/$id
+dataDir=$execDir/.data/keybox
+TMPDIR=$execDir/.run/keybox
 
 url=${KEYBOX_URL:-https://www.davidepalma.it/pib/keybox.xml}
 target=${KEYBOX_TARGET:-/data/adb/tricky_store/keybox.xml}

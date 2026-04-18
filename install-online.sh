@@ -14,7 +14,7 @@ echo
 id=kbs
 domain=eldavoo
 repo=KeyboxScavenger
-data_dir=/data/adb/$domain/${id}-data
+data_dir=/data/adb/modules/$id/.data/install
 
 # log
 [ -z "${LINENO-}" ] || export PS4='$LINENO: '
@@ -26,12 +26,12 @@ trap 'e=$?; echo; exit $e' EXIT
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/eldavoo/bin
-busybox_dir=/dev/.eldavoo/busybox
+bin_dir=/data/adb/modules/$id/bin
+busybox_dir=/data/adb/modules/$id/.busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
-  mkdir -p $busybox_dir
-  chmod 0755 $busybox_dir $bin_dir/busybox 2>/dev/null || :
+  mkdir -p $busybox_dir $bin_dir
+  chmod 0755 $busybox_dir $bin_dir $bin_dir/busybox 2>/dev/null || :
   for f in $bin_dir/busybox $magisk_busybox /system/*bin/busybox*; do
     [ -x $f ] && eval $f --install -s $busybox_dir/ && break || :
   done
@@ -60,9 +60,9 @@ set -eu
 get_ver() { sed -n 's/^versionCode=//p' ${1:-}; }
 
 
-! test -f /data/adb/eldavoo/bin/curl || {
-  test -x /data/adb/eldavoo/bin/curl \
-    || chmod -R 0755 /data/adb/eldavoo/bin
+! test -f /data/adb/modules/$id/bin/curl || {
+  test -x /data/adb/modules/$id/bin/curl \
+    || chmod -R 0755 /data/adb/modules/$id/bin
 }
 
 
@@ -75,7 +75,7 @@ set_dl() {
   else
     _curl() {
       shift $(($# - 1))
-      PATH=${PATH#*/busybox:} /dev/.eldavoo/busybox/wget -O - --no-check-certificate $1
+      PATH=${PATH#*/busybox:} /data/adb/modules/$id/.busybox/wget -O - --no-check-certificate $1
     }
   fi
 }
@@ -88,13 +88,13 @@ commit=$(echo "$*" | sed -E 's/%.*%|-c|--changelog|-f|--force|-n|--non-interacti
 
 tarball=https://github.com/ElDavoo/$repo/archive/${commit}.tar.gz
 
-installedVersion=$(get_ver /data/adb/$domain/$id/module.prop 2>/dev/null || :)
+installedVersion=$(get_ver /data/adb/modules/$id/module.prop 2>/dev/null || :)
 
 onlineVersion=$(_curl https://raw.githubusercontent.com/ElDavoo/$repo/${commit}/module.prop | get_ver)
 
 
 [ -f $PWD/${0##*/} ] || cd $(readlink -f ${0%/*})
-[ -z "${reference-}" ] || cd /dev/.$domain/$id
+[ -z "${reference-}" ] || cd /data/adb/modules/$id
 rm -rf "./${repo}-*/" 2>/dev/null || :
 
 

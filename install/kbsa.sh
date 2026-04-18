@@ -3,5 +3,4 @@
 
 set -eu
 id=kbs
-domain=eldavoo
-exec /data/adb/$domain/$id/kbs.sh "$@"
+exec /data/adb/modules/$id/kbs.sh "$@"

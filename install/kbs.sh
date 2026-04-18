@@ -6,12 +6,14 @@ set -eu
 
 id=kbs
 domain=eldavoo
-execDir=/data/adb/$domain/$id
-keyboxTMP=/dev/.$domain/$id
-keyboxData=/data/adb/$domain/${id}-data
+execDir=/data/adb/modules/$id
+runtimeRoot=$execDir/.run
+dataRoot=$execDir/.data
+keyboxTMP=$runtimeRoot/keybox
+keyboxData=$dataRoot/keybox
 pifId=pif
-pifTMP=/dev/.$domain/$pifId
-pifData=/data/adb/$domain/${pifId}-data
+pifTMP=$runtimeRoot/pif
+pifData=$dataRoot/pif
 
 mkdir -p "$keyboxTMP" "$keyboxData" "$pifTMP" "$pifData"
 

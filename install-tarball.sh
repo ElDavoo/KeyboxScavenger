@@ -10,7 +10,7 @@
 
 id=kbs
 domain=eldavoo
-data_dir=/data/adb/$domain/${1:-$id}-data
+data_dir=/data/adb/modules/${1:-$id}/.data/install
 
 # log
 [ -z "${LINENO-}" ] || export PS4='$LINENO: '
@@ -20,12 +20,12 @@ set -x
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/eldavoo/bin
-busybox_dir=/dev/.eldavoo/busybox
+bin_dir=/data/adb/modules/${1:-$id}/bin
+busybox_dir=/data/adb/modules/${1:-$id}/.busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
-  mkdir -p $busybox_dir
-  chmod 0755 $busybox_dir $bin_dir/busybox 2>/dev/null || :
+  mkdir -p $busybox_dir $bin_dir
+  chmod 0755 $busybox_dir $bin_dir $bin_dir/busybox 2>/dev/null || :
   for f in $bin_dir/busybox $magisk_busybox /system/*bin/busybox*; do
     [ -x $f ] && eval $f --install -s $busybox_dir/ && break || :
   done
@@ -78,9 +78,9 @@ case "$PWD" in
   /data/data/*|/data/user/*)
     get_ver() { sed -n '/^versionCode=/s/.*=//p' ${1}module.prop 2>/dev/null || echo 0; }
     bundled_ver=$(get_ver ${1:-$id}[-_]*/)
-    regular_ver=$(get_ver /data/adb/$domain/${1:-$id}/)
+    regular_ver=$(get_ver /data/adb/modules/${1:-$id}/)
     if [ $bundled_ver -le $regular_ver ] && [ $regular_ver -ne 0 ]; then
-      ln -s $(readlink -f /data/adb/$domain/${1:-$id}) .
+      ln -s $(readlink -f /data/adb/modules/${1:-$id}) .
       exit 0
     fi 2>/dev/null || :
   ;;

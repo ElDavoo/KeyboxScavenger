@@ -7,9 +7,9 @@ set -eu
 
 daemon_id=pif
 domain=eldavoo
-execDir=/data/adb/$domain/kbs
-dataDir=/data/adb/$domain/${daemon_id}-data
-TMPDIR=/dev/.$domain/$daemon_id
+execDir=/data/adb/modules/kbs
+dataDir=$execDir/.data/pif
+TMPDIR=$execDir/.run/pif
 
 propFile=/data/adb/modules/playintegrityfix/custom.pif.prop
 actionFile=/data/adb/modules/playintegrityfix/action.sh
@@ -69,7 +69,7 @@ date_to_epoch() {
     printf '%s\n' "$epoch"
     return 0
   }
-  epoch=$(/dev/.eldavoo/busybox/date -D %Y-%m-%d -d "$1" +%s 2>/dev/null || :)
+  epoch=$("$execDir/.busybox/date" -D %Y-%m-%d -d "$1" +%s 2>/dev/null || :)
   [ -n "$epoch" ] && {
     printf '%s\n' "$epoch"
     return 0
@@ -96,6 +96,8 @@ is_patch_stale() {
 run_action_if_needed() {
   local patch=
   local today=
+  local actionShell=$execDir/.busybox/ash
+  local actionRc=
 
   patch=$(read_security_patch)
   today=$(date +%F)
@@ -127,11 +129,19 @@ run_action_if_needed() {
     return 0
   fi
 
-  log "running $actionFile (SECURITY_PATCH=$patch)"
-  if /system/bin/sh "$actionFile" >> "$logFile" 2>&1; then
+  if [ ! -x "$actionShell" ]; then
+    log "missing compatible shell: $actionShell"
+    lastRunDate=$today
+    save_state
+    return 0
+  fi
+
+  log "running $actionFile with $actionShell (SECURITY_PATCH=$patch)"
+  if "$actionShell" "$actionFile" >> "$logFile" 2>&1; then
     log "action.sh completed"
   else
-    log "action.sh failed (exit $?)"
+    actionRc=$?
+    log "action.sh failed (exit $actionRc)"
   fi
 
   lastRunDate=$today

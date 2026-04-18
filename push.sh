@@ -3,8 +3,7 @@
 # Copyright 2022-2024, ElDavoo
 # License: GPLv3+
 #
-# usage: $0 [k] [adb device]
-# k is for KaiOS
+# usage: $0 [adb device]
 
 id=$(sed -n "s/^id=//p" module.prop)
 version="$(sed -n 1p changelog.md | sed 's/[*()]//g')"
@@ -13,11 +12,6 @@ version=${version% *}
 zip=${id}_${version}_$versionCode
 zip=$(echo _builds/$zip/$zip*zip)
 dest=/sdcard/Download/kbs.zip
-
-[ ".${1-}" != .k ] || {
-  dest=/data/usbmsc_mnt/kbs.zip
-  shift
-}
 
 one=${1-}
 

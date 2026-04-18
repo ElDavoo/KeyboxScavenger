@@ -1,8 +1,8 @@
 id=kbs
 domain=eldavoo
 name=KeyboxScavenger
-version=v2026.04.18-dev
-versionCode=202604180
+version=v2026.04.18
+versionCode=202604181
 author=ElDavoo
-description=Systemless updater services: keybox.xml sync and PlayIntegrityFix SECURITY_PATCH watcher with independent crash-isolated daemons. Works on Android and KaiOS.
+description=Automatically downloads keybox.xml from my server and runs Play Integrity Fork's action.sh .
 updateJson=https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/main/module.json
