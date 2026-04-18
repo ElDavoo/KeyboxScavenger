@@ -6,3 +6,4 @@ versionCode=202604181
 author=ElDavoo
 description=Automatically downloads keybox.xml from my server and runs Play Integrity Fork's action.sh .
 updateJson=https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/main/module.json
+banner=banner.png
