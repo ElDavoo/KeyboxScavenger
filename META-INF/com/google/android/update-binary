@@ -112,7 +112,6 @@ magiskModDir=/data/adb/modules
 versionCode=$(get_prop versionCode)
 appFiles=/data/data/github.eldavoo.keyboxscavenger/files ###
 : ${installDir:=$appFiles} ###
-config=$data_dir/config.txt
 
 
 # install in front-end's internal path by default
@@ -159,7 +158,7 @@ Installing in $installDir/$id/..."
 # backup
 rm -rf $data_dir/backup 2>/dev/null || :
 mkdir -p $data_dir/backup
-cp -aH /data/adb/modules/$id/* $config $data_dir/backup/ 2>/dev/null || :
+cp -aH /data/adb/modules/$id/* $data_dir/backup/ 2>/dev/null || :
 
 
 export KSU=${KSU:-false}

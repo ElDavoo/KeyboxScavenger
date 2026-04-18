@@ -1,8 +1,8 @@
 id=kbs
 domain=eldavoo
 name=KeyboxScavenger
-version=v2026.04.18
-versionCode=202604181
+version=v2026.04.19
+versionCode=202604190
 author=ElDavoo
 description=Automatically downloads keybox.xml from my server and runs Play Integrity Fork's action.sh .
 updateJson=https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/main/module.json
