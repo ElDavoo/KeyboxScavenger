@@ -1,8 +1,17 @@
-# KeyboxScavenger
+# Keybox Scavenger
 
-Systemless Magisk/Root module that runs two independent background services:
+![Keybox Scavenger](https://repository-images.githubusercontent.com/1213838454/00fef3de-b7a0-4777-910a-2eb06326c3ab)
 
-1. Keybox updater (`kbsd`)
+> Another unnecessary modulr - @bad_rulez
+
+Systemless Magisk/Root module that does two things:
+1. Keeps your keybox up to date downloading it automatically from my server.
+2. Auto-runs Play Integrity Fork action.sh when it's time.
+
+In this way, your root setup becomes 100% "set and forget".
+
+
+## Keybox Service (`kbsd`)
 - Every 3 hours (with an immediate run at start), performs a HEAD request to:
   - `https://www.davidepalma.it/pib/keybox.xml`
 - Downloads only when modified.
@@ -10,7 +19,7 @@ Systemless Magisk/Root module that runs two independent background services:
   - `/data/adb/tricky_store/keybox.xml`
 - Preserves destination owner/group/mode/SELinux context.
 
-2. PlayIntegrityFix patch watcher (`pifd`)
+## PlayIntegrityFix Patch Watcher (`pifd`)
 - Reads:
   - `/data/adb/modules/playintegrityfix/custom.pif.prop`
 - Parses:
@@ -45,8 +54,3 @@ A crash in one service does not stop the other.
 - `kbs --log keybox`
 - `kbs --log pif`
 - `kbs --log all`
-
-## Notes
-
-- This repository no longer contains battery charging control logic.
-- Legacy battery-related install scripts have been removed from `install/`.
