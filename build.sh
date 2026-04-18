@@ -24,11 +24,33 @@ id=$(sed -n "s/^id=//p" module.prop)
 domain=$(sed -n "s/^domain=//p" module.prop)
 repo=KeyboxScavenger
 
-version="$(sed -n 1p changelog.md | sed 's/[*()]//g')"
+changelogEntry=
+if [ -f changelog.md ]; then
+  changelogEntry="$(sed -n 1p changelog.md | sed 's/[*()]//g')"
+fi
 
-versionCode=${version#* }
+if [ -n "$changelogEntry" ]; then
+  parsedVersionCode=${changelogEntry#* }
+  parsedVersion=${changelogEntry% *}
+  case "$parsedVersionCode" in
+    ''|*[!0-9]*) parsedVersionCode= ;;
+  esac
+fi
 
-version=${version% *}
+if [ -n "${parsedVersion-}" ] && [ -n "${parsedVersionCode-}" ]; then
+  version=$parsedVersion
+  versionCode=$parsedVersionCode
+  set_prop version "$version"
+  set_prop versionCode "$versionCode"
+else
+  version=$(sed -n "s/^version=//p" module.prop)
+  versionCode=$(sed -n "s/^versionCode=//p" module.prop)
+fi
+
+[ -n "$version" -a -n "$versionCode" ] || {
+  echo "Unable to resolve version/versionCode from changelog.md or module.prop" >&2
+  exit 2
+}
 
 basename=${id}_${version}_$versionCode
 
@@ -36,10 +58,7 @@ tmpDir=.tmp/META-INF/com/google/android
 
 
 # update module info
-[ changelog.md -ot module.prop ] || {
-  set_prop version $version
-  set_prop versionCode $versionCode
-  cat << EOF > module.json
+cat << EOF > module.json
 {
     "busybox": "https://github.com/Magisk-Modules-Repo/busybox-ndk",
     "changelog": "https://raw.githubusercontent.com/ElDavoo/$repo/main/changelog.md",
@@ -52,7 +71,6 @@ tmpDir=.tmp/META-INF/com/google/android
     "zipUrl": "https://github.com/ElDavoo/$repo/releases/download/$version/${basename}.zip"
 }
 EOF
-}
 
 
 # set ID

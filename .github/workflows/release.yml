@@ -1,0 +1,129 @@
+name: Build And Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Artifacts
+        run: sh build.sh
+
+      - name: Collect Metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          id="$(sed -n 's/^id=//p' module.prop)"
+          version="$(sed -n 's/^version=//p' module.prop)"
+          version_code="$(sed -n 's/^versionCode=//p' module.prop)"
+
+          base="${id}_${version}_${version_code}"
+          build_dir="_builds/${base}"
+
+          zip_file="$(ls -1 "${build_dir}/${base}"*.zip | head -n 1)"
+          tgz_file="${build_dir}/${base}.tgz"
+          online_installer="${build_dir}/install-online.sh"
+          tarball_installer="${build_dir}/install-tarball.sh"
+          uninstaller_zip="${build_dir}/${id}_flashable_uninstaller.zip"
+
+          for f in "$zip_file" "$tgz_file" "$online_installer" "$tarball_installer" "$uninstaller_zip"; do
+            [ -f "$f" ] || {
+              echo "Missing expected build output: $f" >&2
+              exit 1
+            }
+          done
+
+          prerelease=false
+          case "$version" in
+            *-*) prerelease=true ;;
+          esac
+
+          {
+            echo "id=$id"
+            echo "version=$version"
+            echo "version_code=$version_code"
+            echo "tag=$version"
+            echo "base=$base"
+            echo "build_dir=$build_dir"
+            echo "zip_file=$zip_file"
+            echo "tgz_file=$tgz_file"
+            echo "online_installer=$online_installer"
+            echo "tarball_installer=$tarball_installer"
+            echo "uninstaller_zip=$uninstaller_zip"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.base }}
+          path: |
+            ${{ steps.meta.outputs.zip_file }}
+            ${{ steps.meta.outputs.tgz_file }}
+            ${{ steps.meta.outputs.online_installer }}
+            ${{ steps.meta.outputs.tarball_installer }}
+            ${{ steps.meta.outputs.uninstaller_zip }}
+
+      - name: Commit Refreshed Metadata
+        if: ${{ github.ref == 'refs/heads/main' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed=false
+          for f in module.json module.prop README.html customize.sh install.sh install-online.sh install-tarball.sh META-INF/com/google/android/update-binary install/uninstall.sh; do
+            git diff --quiet -- "$f" || changed=true
+          done
+
+          if [ "$changed" = true ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add module.json module.prop README.html customize.sh install.sh install-online.sh install-tarball.sh META-INF/com/google/android/update-binary install/uninstall.sh
+            git commit -m "ci: refresh generated metadata [skip ci]"
+            git push
+          fi
+
+      - name: Ensure Tag Exists
+        if: ${{ github.ref == 'refs/heads/main' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          if git ls-remote --tags --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag already exists: $tag"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" -m "Release $tag"
+            git push origin "$tag"
+          fi
+
+      - name: Create Or Update Release
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            ${{ steps.meta.outputs.zip_file }}
+            ${{ steps.meta.outputs.tgz_file }}
+            ${{ steps.meta.outputs.online_installer }}
+            ${{ steps.meta.outputs.tarball_installer }}
+            ${{ steps.meta.outputs.uninstaller_zip }}
