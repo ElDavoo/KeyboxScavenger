@@ -34,26 +34,25 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          VERSION=$(sed -n 's/^version=//p' module.prop)
+          # Prefer the pushed tag when present, otherwise fall back to module.prop
+          if echo "${GITHUB_REF:-}" | grep -q '^refs/tags/'; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=$(sed -n 's/^version=//p' module.prop)
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: packages
-          path: |
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ steps.get_version.outputs.version }}
+          body: Automated release for ${{ steps.get_version.outputs.version }}
+          files: |
             _builds/**/*.zip
             _builds/**/*.tgz
             bin/*.zip
             install-online.sh
             install-tarball.sh
             module.json
-
-      - name: Create GitHub release and upload artifacts
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.get_version.outputs.version }}
-          name: ${{ steps.get_version.outputs.version }}
-          artifacts: packages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.get_version.outputs.version }}
