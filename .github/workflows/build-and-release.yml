@@ -8,6 +8,10 @@ on:
       - main
   workflow_dispatch:
 
+# Grant write access to repository contents so the workflow can create releases
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -33,11 +37,23 @@ jobs:
           VERSION=$(sed -n 's/^version=//p' module.prop)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            _builds/**/*.zip
+            _builds/**/*.tgz
+            bin/*.zip
+            install-online.sh
+            install-tarball.sh
+            module.json
+
       - name: Create GitHub release and upload artifacts
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.get_version.outputs.version }}
           name: ${{ steps.get_version.outputs.version }}
-          files: _builds/**/*.{zip,tgz},bin/*.zip,install-online.sh,install-tarball.sh,module.json
+          artifacts: packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
