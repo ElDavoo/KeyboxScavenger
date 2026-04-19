@@ -1,0 +1,43 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Make build script executable
+        run: chmod +x ./build.sh || true
+
+      - name: Build package
+        run: |
+          set -eux
+          ./check-syntax.sh || true
+          ./build.sh
+
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(sed -n 's/^version=//p' module.prop)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release and upload artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.get_version.outputs.version }}
+          name: ${{ steps.get_version.outputs.version }}
+          files: _builds/**/*.{zip,tgz},bin/*.zip,install-online.sh,install-tarball.sh,module.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
