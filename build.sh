@@ -148,7 +148,7 @@ fi
   echo
 
   # prepare files to be included in $id installable tarball
-  cp -R install install.sh License.md README.* module.prop bin/ \
+  cp -R install install.sh action.sh License.md README.* module.prop bin/ \
     _builds/${basename}/${basename}/ 2>&1 \
     | grep -iv "can't preserve"
 

@@ -7,8 +7,8 @@ set -eu
 id=kbs
 domain=eldavoo
 execDir=/data/adb/modules/$id
-runtimeRoot=$execDir/.run
-dataRoot=$execDir/.data
+runtimeRoot=$execDir/run
+dataRoot=$execDir/data
 keyboxTMP=$runtimeRoot/keybox
 keyboxData=$dataRoot/keybox
 pifId=pif

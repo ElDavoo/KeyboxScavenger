@@ -7,7 +7,7 @@
 
 execDir=${execDir:-/data/adb/modules/kbs}
 bin_dir=$execDir/bin
-busybox_dir=$execDir/.busybox
+busybox_dir=$execDir/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 
 [ -x $busybox_dir/ls ] || {

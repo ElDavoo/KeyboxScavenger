@@ -14,7 +14,7 @@ SKIPMOUNT=false
 echo
 id=kbs
 domain=eldavoo
-data_dir=/data/adb/modules/$id/.data/install
+data_dir=/data/adb/modules/$id/data/install
 
 
 # log
@@ -27,7 +27,8 @@ set -x
 exxit() {
   local e=$?
   set +eu
-  rm -rf /data/adb/modules/$id/.tmp-install
+  cd /
+  rm -rf /data/adb/modules/$id/tmp-install
   $KSU || {
     rm -rf /data/adb/modules_update/$id
     (abort) > /dev/null
@@ -42,7 +43,7 @@ trap exxit EXIT
 # set up busybox
 #BB#
 bin_dir=/data/adb/modules/$id/bin
-busybox_dir=/data/adb/modules/$id/.busybox
+busybox_dir=/data/adb/modules/$id/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir $bin_dir
@@ -98,7 +99,7 @@ srcDir="$(cd "${0%/*}" 2>/dev/null || :; echo "$PWD")"
 
 # extract flashable zip if source code is unavailable
 [ -d $srcDir/install ] || {
-  srcDir=/data/adb/modules/$id/.tmp-install
+  srcDir=/data/adb/modules/$id/tmp-install
   rm -rf $srcDir 2>/dev/null || :
   mkdir -p $srcDir
   unzip "${APK:-${ZIPFILE:-$3}}" -d $srcDir/ >&2
@@ -168,9 +169,10 @@ mkdir -p $installDir/$id
 cp -R $srcDir/install/* $installDir/$id/
 installDir=$(readlink -f $installDir/$id)
 cp $srcDir/module.prop $installDir/
+cp $srcDir/action.sh $installDir/
 cp -f $srcDir/README.* $data_dir/
 
-tmpd=/data/adb/modules/$id/.run/install
+tmpd=/data/adb/modules/$id/run/install
 mkdir -p $tmpd
 
 

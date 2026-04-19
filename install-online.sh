@@ -14,7 +14,7 @@ echo
 id=kbs
 domain=eldavoo
 repo=KeyboxScavenger
-data_dir=/data/adb/modules/$id/.data/install
+data_dir=/data/adb/modules/$id/data/install
 
 # log
 [ -z "${LINENO-}" ] || export PS4='$LINENO: '
@@ -27,7 +27,7 @@ trap 'e=$?; echo; exit $e' EXIT
 # set up busybox
 #BB#
 bin_dir=/data/adb/modules/$id/bin
-busybox_dir=/data/adb/modules/$id/.busybox
+busybox_dir=/data/adb/modules/$id/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir $bin_dir
@@ -75,7 +75,7 @@ set_dl() {
   else
     _curl() {
       shift $(($# - 1))
-      PATH=${PATH#*/busybox:} /data/adb/modules/$id/.busybox/wget -O - --no-check-certificate $1
+      PATH=${PATH#*/busybox:} /data/adb/modules/$id/busybox/wget -O - --no-check-certificate $1
     }
   fi
 }

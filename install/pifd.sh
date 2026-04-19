@@ -8,8 +8,8 @@ set -eu
 daemon_id=pif
 domain=eldavoo
 execDir=/data/adb/modules/kbs
-dataDir=$execDir/.data/pif
-TMPDIR=$execDir/.run/pif
+dataDir=$execDir/data/pif
+TMPDIR=$execDir/run/pif
 
 propFile=/data/adb/modules/playintegrityfix/custom.pif.prop
 actionFile=/data/adb/modules/playintegrityfix/action.sh
@@ -69,7 +69,7 @@ date_to_epoch() {
     printf '%s\n' "$epoch"
     return 0
   }
-  epoch=$("$execDir/.busybox/date" -D %Y-%m-%d -d "$1" +%s 2>/dev/null || :)
+  epoch=$("$execDir/busybox/date" -D %Y-%m-%d -d "$1" +%s 2>/dev/null || :)
   [ -n "$epoch" ] && {
     printf '%s\n' "$epoch"
     return 0
@@ -96,7 +96,7 @@ is_patch_stale() {
 run_action_if_needed() {
   local patch=
   local today=
-  local actionShell=$execDir/.busybox/ash
+  local actionShell=$execDir/busybox/ash
   local actionRc=
 
   patch=$(read_security_patch)

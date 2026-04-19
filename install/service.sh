@@ -7,23 +7,27 @@ id=kbs
 domain=eldavoo
 execDir=/data/adb/modules/$id
 
-runtimeRoot=$execDir/.run
-dataRoot=$execDir/.data
+runtimeRoot=$execDir/run
+dataRoot=$execDir/data
 keyboxTmp=$runtimeRoot/keybox
 keyboxData=$dataRoot/keybox
 pifId=pif
 pifTmp=$runtimeRoot/pif
 pifData=$dataRoot/pif
 
-[ -f $execDir/disable -o -f $keyboxData/disable ] && exit 14
+[ -f "$execDir/disable" ] || [ -f "$keyboxData/disable" ] && exit 14
 
-# wait til the lock screen is ready and give some bootloop grace period
+# Wait until userspace is fully available before touching /data/adb/modules.
 slept=false
-until [ .$(getprop init.svc.bootanim 2>/dev/null) = .stopped ]; do
-  [ -f $execDir/disable -o -f $keyboxData/disable ] && exit 14
+until [ ."$(getprop sys.boot_completed 2>/dev/null)" = .1 ] \
+  && [ ."$(getprop init.svc.bootanim 2>/dev/null)" = .stopped ] \
+  && [ -d /data/adb/modules ] \
+  && [ -d "$execDir" ]
+do
+  [ -f "$execDir/disable" ] || [ -f "$keyboxData/disable" ] && exit 14
   sleep 10 && slept=true
 done
-$slept && sleep 60
+$slept && sleep 30
 unset slept
 
 mkdir -p "$keyboxTmp" "$keyboxData" "$pifTmp" "$pifData"

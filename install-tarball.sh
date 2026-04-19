@@ -10,7 +10,7 @@
 
 id=kbs
 domain=eldavoo
-data_dir=/data/adb/modules/${1:-$id}/.data/install
+data_dir=/data/adb/modules/${1:-$id}/data/install
 
 # log
 [ -z "${LINENO-}" ] || export PS4='$LINENO: '
@@ -21,7 +21,7 @@ set -x
 # set up busybox
 #BB#
 bin_dir=/data/adb/modules/${1:-$id}/bin
-busybox_dir=/data/adb/modules/${1:-$id}/.busybox
+busybox_dir=/data/adb/modules/${1:-$id}/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir $bin_dir
