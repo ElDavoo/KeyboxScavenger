@@ -3,9 +3,9 @@
     "changelog": "https://raw.githubusercontent.com/ElDavoo/KeyboxScavenger/main/changelog.md",
     "curl": "https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/tree/master/curl",
     "onlineInstaller": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.19/install-online.sh",
-    "tgz": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.19/kbs_v2026.04.19_202604191.tgz",
+    "tgz": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.19/kbs_v2026.04.19_202604192.tgz",
     "tgzInstaller": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.19/install-tarball.sh",
     "version": "v2026.04.19",
-    "versionCode": 202604191,
-    "zipUrl": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.19/kbs_v2026.04.19_202604191.zip"
+    "versionCode": 202604192,
+    "zipUrl": "https://github.com/ElDavoo/KeyboxScavenger/releases/download/v2026.04.19/kbs_v2026.04.19_202604192.zip"
 }

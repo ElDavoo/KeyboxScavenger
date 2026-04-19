@@ -27,7 +27,9 @@ magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/nul
   mkdir -p $busybox_dir $bin_dir
   chmod 0755 $busybox_dir $bin_dir $bin_dir/busybox 2>/dev/null || :
   for f in $bin_dir/busybox $magisk_busybox /system/*bin/busybox*; do
-    [ -x $f ] && eval $f --install -s $busybox_dir/ && break || :
+    [ -e "$f" ] || continue
+    [ -x "$f" ] || chmod 0755 "$f" 2>/dev/null || :
+    "$f" --install -s "$busybox_dir/" >/dev/null 2>&1 && break || :
   done
   [ -x $busybox_dir/ls ] || {
     echo "Install busybox or simply place it in $bin_dir/"
