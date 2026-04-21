@@ -81,7 +81,7 @@ set_perms() {
   local perms=0644
   local target=
   target=$(readlink -f $1)
-  if echo $target | grep -q '.*\.sh$' || [ -d $target ]; then perms=0755; fi
+  if echo $target | grep -q '.*\.sh$' || [ -d $target ] || [ "${target##*/}" = "kbs-sleep" ]; then perms=0755; fi
   chmod $perms $target
   chown $owner:$owner $target
   chcon u:object_r:system_file:s0 $target 2>/dev/null || :
