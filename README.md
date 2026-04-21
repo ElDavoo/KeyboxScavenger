@@ -63,3 +63,23 @@ A crash in one service does not stop the other.
 - `kbs --log keybox`
 - `kbs --log pif`
 - `kbs --log all`
+
+## Boottime Sleep Helper
+
+KBS now supports an optional native helper (`kbs-sleep`) that sleeps using
+`CLOCK_BOOTTIME`, so suspend/resume does not stall daemon wait intervals.
+
+Prebuilt artifacts are expected in `bin/` as:
+- `kbs-sleep.arm64-v8a`
+- `kbs-sleep.armeabi-v7a`
+- `kbs-sleep.x86_64`
+
+The installer picks the matching ABI and installs it as:
+- `/data/adb/modules/kbs/bin/kbs-sleep`
+
+To rebuild helpers (API 26+) with Android NDK:
+
+```sh
+export ANDROID_NDK_HOME=/path/to/android-ndk
+sh ./build-kbs-sleep.sh
+```

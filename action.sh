@@ -4,6 +4,26 @@
 
 MODPATH="${0%/*}"
 
+boottime_sleep_once() {
+  local seconds=${1:-0}
+
+  case "$seconds" in
+    ''|*[!0-9]*) return 2 ;;
+  esac
+
+  [ "$seconds" -gt 0 ] || return 0
+
+  if [ -x /data/adb/modules/kbs/bin/kbs-sleep ]; then
+    /data/adb/modules/kbs/bin/kbs-sleep "$seconds" && return 0
+  fi
+
+  if [ -x /system/bin/sleep ]; then
+    /system/bin/sleep "$seconds"
+  else
+    sleep "$seconds"
+  fi
+}
+
 # show daemon logs first so action output includes context
 if [ -x /data/adb/modules/kbs/kbs.sh ]; then
   echo "=== KeyboxScavenger logs (last 120 lines) ==="
@@ -18,5 +38,5 @@ fi
 # warn since KernelSU/APatch's implementation automatically closes if successful
 if [ "$KSU" = "true" -o "$APATCH" = "true" ] && [ "$KSU_NEXT" != "true" ] && [ "$WKSU" != "true" ] && [ "$MMRL" != "true" ]; then
     echo -e "\nClosing dialog in 20 seconds ..."
-    sleep 20
+  boottime_sleep_once 20
 fi

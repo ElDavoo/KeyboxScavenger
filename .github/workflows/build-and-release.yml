@@ -23,13 +23,49 @@ jobs:
           fetch-depth: 0
 
       - name: Make build script executable
-        run: chmod +x ./build.sh || true
+        run: chmod +x ./build.sh ./build-kbs-sleep.sh || true
+
+      - name: Set up Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ndk;26.1.10909125
+
+      - name: Build sleep helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [ -n "$sdk_root" ] || { echo "Android SDK root not available" >&2; exit 1; }
+          ndk_home="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          [ -n "$ndk_home" ] || { echo "Android NDK not found under $sdk_root/ndk" >&2; exit 1; }
+          export ANDROID_NDK_HOME="$ndk_home"
+          ./build-kbs-sleep.sh
+
+      - name: Verify sleep helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in bin/kbs-sleep.arm64-v8a bin/kbs-sleep.armeabi-v7a bin/kbs-sleep.x86_64; do
+            [ -x "$file" ]
+          done
 
       - name: Build package
         run: |
           set -eux
           ./check-syntax.sh || true
           ./build.sh
+
+      - name: Verify packaged sleep helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip_file="$(find _builds -maxdepth 2 -name '*.zip' | head -n 1)"
+          tgz_file="$(find _builds -maxdepth 2 -name '*.tgz' | head -n 1)"
+          [ -n "$zip_file" ]
+          [ -n "$tgz_file" ]
+          unzip -l "$zip_file" | grep -F 'bin/kbs-sleep.arm64-v8a'
+          unzip -l "$zip_file" | grep -F 'bin/kbs-sleep.armeabi-v7a'
+          unzip -l "$zip_file" | grep -F 'bin/kbs-sleep.x86_64'
 
       - name: Get version
         id: get_version

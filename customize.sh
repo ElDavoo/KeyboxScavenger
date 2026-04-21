@@ -213,13 +213,20 @@ if $frontend; then
     echo "#!/system/bin/sh
       # kbs front-end post-uninstall cleanup script
 
+      boottime_sleep() {
+        if [ -x /data/adb/modules/$id/bin/kbs-sleep ]; then
+          /data/adb/modules/$id/bin/kbs-sleep "\$1" && return 0
+        fi
+        sleep "\$1"
+      }
+
       until test -d /sdcard/Android \\
         && test .\$(getprop sys.boot_completed) = .1
       do
-        sleep 60
+        boottime_sleep 60
       done
 
-      sleep 60
+      boottime_sleep 60
 
       [ -e $appFiles/$id ] || rm -rf \$0 /data/adb/modules/$id 2>/dev/null
 
@@ -231,6 +238,27 @@ fi
 
 # install binaries
 cp -f $srcDir/bin/${id}_flashable_uninstaller.zip $data_dir/
+mkdir -p $installDir/bin
+
+sleepBinary=
+abi=$(getprop ro.product.cpu.abi 2>/dev/null || :)
+case "$abi" in
+  arm64-v8a) sleepBinary=$srcDir/bin/kbs-sleep.arm64-v8a ;;
+  armeabi-v7a|armeabi) sleepBinary=$srcDir/bin/kbs-sleep.armeabi-v7a ;;
+  x86_64) sleepBinary=$srcDir/bin/kbs-sleep.x86_64 ;;
+esac
+
+[ -n "$sleepBinary" ] && [ -f "$sleepBinary" ] || {
+  for f in \
+    $srcDir/bin/kbs-sleep.arm64-v8a \
+    $srcDir/bin/kbs-sleep.armeabi-v7a \
+    $srcDir/bin/kbs-sleep.x86_64
+  do
+    [ -f "$f" ] && { sleepBinary=$f; break; }
+  done
+}
+
+[ -z "$sleepBinary" ] || cp -f "$sleepBinary" "$installDir/bin/kbs-sleep"
 
 
 # Termux, fix shebang

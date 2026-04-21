@@ -27,7 +27,12 @@ mkdir -p "$TMPDIR" "$stateDir" "$dataDir/logs"
 export domain execDir dataDir TMPDIR
 
 . "$execDir/setup-busybox.sh"
+. "$execDir/boottime-sleep.sh" 2>/dev/null || :
 . "$execDir/pif-acquire-lock.sh"
+
+command -v boottime_sleep_interval >/dev/null 2>&1 || boottime_sleep_interval() {
+  sleep "$1"
+}
 
 log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$logFile"
@@ -161,7 +166,7 @@ rotate_log_if_needed
 run_action_if_needed
 
 while :; do
-  sleep "$checkIntervalSeconds"
+  boottime_sleep_interval "$checkIntervalSeconds"
   rotate_log_if_needed
   run_action_if_needed
 done

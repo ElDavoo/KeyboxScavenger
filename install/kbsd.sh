@@ -27,7 +27,12 @@ mkdir -p "$TMPDIR" "$dataDir/logs" "$stateDir"
 export id domain execDir dataDir TMPDIR
 
 . "$execDir/setup-busybox.sh"
+. "$execDir/boottime-sleep.sh" 2>/dev/null || :
 . "$execDir/acquire-lock.sh"
+
+command -v boottime_sleep_interval >/dev/null 2>&1 || boottime_sleep_interval() {
+  sleep "$1"
+}
 
 log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$logFile"
@@ -190,7 +195,7 @@ sync_keybox() {
 rotate_log_if_needed
 sync_keybox
 while :; do
-  sleep "$intervalSeconds"
+  boottime_sleep_interval "$intervalSeconds"
   rotate_log_if_needed
   sync_keybox
 done

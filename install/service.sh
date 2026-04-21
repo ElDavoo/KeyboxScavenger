@@ -16,6 +16,11 @@ pifTmp=$runtimeRoot/pif
 pifData=$dataRoot/pif
 rotateScript=$execDir/rotate-log.sh
 logKeepCount=${KBS_LOG_KEEP_COUNT:-5}
+export domain execDir
+. "$execDir/boottime-sleep.sh" 2>/dev/null || :
+command -v boottime_sleep_once >/dev/null 2>&1 || boottime_sleep_once() {
+  sleep "$1"
+}
 
 [ -f "$execDir/disable" ] || [ -f "$keyboxData/disable" ] && exit 14
 
@@ -27,14 +32,12 @@ until [ ."$(getprop sys.boot_completed 2>/dev/null)" = .1 ] \
   && [ -d "$execDir" ]
 do
   [ -f "$execDir/disable" ] || [ -f "$keyboxData/disable" ] && exit 14
-  sleep 10 && slept=true
+  boottime_sleep_once 10 && slept=true
 done
-$slept && sleep 30
+$slept && boottime_sleep_once 30
 unset slept
 
 mkdir -p "$keyboxTmp" "$keyboxData" "$pifTmp" "$pifData"
-
-export domain execDir
 
 TMPDIR=$keyboxTmp
 dataDir=$keyboxData

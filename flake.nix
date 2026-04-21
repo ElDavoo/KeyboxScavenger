@@ -29,7 +29,10 @@
 
               nativeBuildInputs = with pkgs; [
                 bash
+                binutils
+                clang
                 coreutils
+                file
                 findutils
                 gawk
                 gnugrep
@@ -69,7 +72,10 @@
             default = pkgs.mkShell {
               packages = with pkgs; [
                 bash
+                binutils
+                clang
                 coreutils
+                file
                 findutils
                 gawk
                 gnugrep
