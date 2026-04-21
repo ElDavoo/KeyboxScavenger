@@ -52,13 +52,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          zip_file="$(ls -1 _builds/*/*.zip | head -n 1)"
-          tgz_file="$(ls -1 _builds/*/*.tgz | head -n 1)"
-          [ -n "$zip_file" ]
-          [ -n "$tgz_file" ]
+          id="$(sed -n 's/^id=//p' module.prop)"
+          version="$(sed -n 's/^version=//p' module.prop)"
+          version_code="$(sed -n 's/^versionCode=//p' module.prop)"
+          base="${id}_${version}_${version_code}"
+          build_dir="_builds/${base}"
+          zip_file="$(ls -1 "${build_dir}/${base}"*.zip | head -n 1)"
+          tgz_file="${build_dir}/${base}.tgz"
+          [ -f "$zip_file" ]
+          [ -f "$tgz_file" ]
           unzip -l "$zip_file" | grep -F 'bin/kbs-sleep.arm64-v8a'
           unzip -l "$zip_file" | grep -F 'bin/kbs-sleep.armeabi-v7a'
           unzip -l "$zip_file" | grep -F 'bin/kbs-sleep.x86_64'
+          tar -tzf "$tgz_file" | grep -F '/bin/kbs-sleep.arm64-v8a'
+          tar -tzf "$tgz_file" | grep -F '/bin/kbs-sleep.armeabi-v7a'
+          tar -tzf "$tgz_file" | grep -F '/bin/kbs-sleep.x86_64'
 
       - name: Collect Metadata
         id: meta

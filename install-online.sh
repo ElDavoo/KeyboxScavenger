@@ -26,8 +26,9 @@ trap 'e=$?; echo; exit $e' EXIT
 
 # set up busybox
 #BB#
-bin_dir=/data/adb/modules/$id/bin
-busybox_dir=/data/adb/modules/$id/busybox
+execDir=${execDir:-/data/adb/modules/kbs}
+bin_dir=$execDir/bin
+busybox_dir=$execDir/busybox
 magisk_busybox="$(ls /data/adb/*/bin/busybox /data/adb/magisk/busybox 2>/dev/null || :)"
 [ -x $busybox_dir/ls ] || {
   mkdir -p $busybox_dir $bin_dir
