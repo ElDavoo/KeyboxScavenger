@@ -95,7 +95,6 @@ jobs:
           files: |
             _builds/**/*.zip
             _builds/**/*.tgz
-            bin/*.zip
             install-online.sh
             install-tarball.sh
             module.json
