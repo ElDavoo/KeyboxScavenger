@@ -19,6 +19,9 @@ checkIntervalSeconds=3600
 stateDir=$dataDir/state
 stateFile=$stateDir/pif.state
 logFile=$dataDir/logs/pifd.log
+logRotateStateFile=$stateDir/pifd.log.rotate_date
+logKeepCount=${KBS_LOG_KEEP_COUNT:-5}
+logRotateScript=$execDir/rotate-log.sh
 
 mkdir -p "$TMPDIR" "$stateDir" "$dataDir/logs"
 export domain execDir dataDir TMPDIR
@@ -28,6 +31,11 @@ export domain execDir dataDir TMPDIR
 
 log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$logFile"
+}
+
+rotate_log_if_needed() {
+  [ -f "$logRotateScript" ] || return 0
+  sh "$logRotateScript" "$logFile" "$logRotateStateFile" "$logKeepCount" >/dev/null 2>&1 || :
 }
 
 lastPatch=
@@ -149,9 +157,11 @@ run_action_if_needed() {
 }
 
 load_state
+rotate_log_if_needed
 run_action_if_needed
 
 while :; do
   sleep "$checkIntervalSeconds"
+  rotate_log_if_needed
   run_action_if_needed
 done

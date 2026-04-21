@@ -18,6 +18,9 @@ intervalSeconds=${KEYBOX_INTERVAL_SECONDS:-10800}
 stateDir=$dataDir/state
 stateFile=$stateDir/keybox.last_modified
 logFile=$dataDir/logs/keyboxd.log
+logRotateStateFile=$stateDir/keyboxd.log.rotate_date
+logKeepCount=${KBS_LOG_KEEP_COUNT:-5}
+logRotateScript=$execDir/rotate-log.sh
 headFile=$TMPDIR/keybox.head
 
 mkdir -p "$TMPDIR" "$dataDir/logs" "$stateDir"
@@ -28,6 +31,11 @@ export id domain execDir dataDir TMPDIR
 
 log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$logFile"
+}
+
+rotate_log_if_needed() {
+  [ -f "$logRotateScript" ] || return 0
+  sh "$logRotateScript" "$logFile" "$logRotateStateFile" "$logKeepCount" >/dev/null 2>&1 || :
 }
 
 cleanup_tmp() {
@@ -179,8 +187,10 @@ sync_keybox() {
 }
 
 # one immediate check, then periodic checks every 3 hours (default)
+rotate_log_if_needed
 sync_keybox
 while :; do
   sleep "$intervalSeconds"
+  rotate_log_if_needed
   sync_keybox
 done

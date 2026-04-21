@@ -45,6 +45,15 @@ A crash in one service does not stop the other.
 - Keybox logs/state: `/data/adb/modules/kbs/data/keybox/`
 - PIF logs/state: `/data/adb/modules/kbs/data/pif/`
 
+## Log Rotation
+
+- Daemon logs are rotated daily (plain text archives).
+- Rotated files are kept per daemon log and pruned to the newest 5 files.
+- Current default logs are:
+  - `/data/adb/modules/kbs/data/keybox/logs/keyboxd.log`
+  - `/data/adb/modules/kbs/data/pif/logs/pifd.log`
+- You can override retention count with `KBS_LOG_KEEP_COUNT`.
+
 ## CLI
 
 - `kbs --daemon status`

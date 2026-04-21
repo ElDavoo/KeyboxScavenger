@@ -14,6 +14,8 @@ keyboxData=$dataRoot/keybox
 pifId=pif
 pifTmp=$runtimeRoot/pif
 pifData=$dataRoot/pif
+rotateScript=$execDir/rotate-log.sh
+logKeepCount=${KBS_LOG_KEEP_COUNT:-5}
 
 [ -f "$execDir/disable" ] || [ -f "$keyboxData/disable" ] && exit 14
 
@@ -46,6 +48,16 @@ dataDir=$pifData
 id=$pifId
 export id TMPDIR dataDir
 . $execDir/pif-release-lock.sh
+
+rotate_log_safe() {
+  local logFile=$1
+  local stateFile=$2
+  [ -f "$rotateScript" ] || return 0
+  sh "$rotateScript" "$logFile" "$stateFile" "$logKeepCount" >/dev/null 2>&1 || :
+}
+
+rotate_log_safe "$keyboxData/logs/keyboxd.log" "$keyboxData/state/keyboxd.log.rotate_date"
+rotate_log_safe "$pifData/logs/pifd.log" "$pifData/state/pifd.log.rotate_date"
 
 if [ ".$1" = .-x ]; then
   touch "$keyboxData/disable"
