@@ -26,7 +26,7 @@ jobs:
         run: chmod +x ./build.sh ./build-kbs-sleep.sh || true
 
       - name: Set up Android NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: ndk;26.1.10909125
 
