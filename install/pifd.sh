@@ -13,8 +13,8 @@ TMPDIR=$execDir/run/pif
 
 propFile=/data/adb/modules/playintegrityfix/custom.pif.prop
 actionFile=/data/adb/modules/playintegrityfix/action.sh
-minAgeSeconds=$((30 * 86400))
-checkIntervalSeconds=3600
+minAgeSeconds=$((50 * 86400))
+checkIntervalSeconds=86400
 
 stateDir=$dataDir/state
 stateFile=$stateDir/pif.state
