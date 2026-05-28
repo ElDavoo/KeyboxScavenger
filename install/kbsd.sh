@@ -70,12 +70,35 @@ download_file() {
 }
 
 head_request() {
+  HEAD_ERROR=
+  HEAD_TOOL=
+  HEAD_MISSING=
+
+  if ! command -v curl >/dev/null 2>&1; then
+    HEAD_MISSING="curl"
+  fi
+  if ! command -v wget >/dev/null 2>&1; then
+    HEAD_MISSING="${HEAD_MISSING:+$HEAD_MISSING, }wget"
+  fi
+
   : > "$headFile"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSIL --connect-timeout 20 --max-time 60 "$url" > "$headFile" 2>/dev/null && return 0
+    HEAD_TOOL=curl
+    if curl -fsSIL --connect-timeout 20 --max-time 60 "$url" > "$headFile" 2>/dev/null; then
+      return 0
+    fi
+    HEAD_ERROR=$(curl -v -I --connect-timeout 20 --max-time 60 -o /dev/null "$url" 2>&1 || :)
+    [ -n "$HEAD_ERROR" ] || HEAD_ERROR="curl failed without output"
+    return 1
   fi
   if command -v wget >/dev/null 2>&1; then
-    wget --server-response --spider --no-check-certificate "$url" > /dev/null 2> "$headFile" && return 0
+    HEAD_TOOL=wget
+    if wget --server-response --spider --no-check-certificate "$url" > /dev/null 2> "$headFile"; then
+      return 0
+    fi
+    HEAD_ERROR=$(wget --server-response --spider --no-check-certificate "$url" 2>&1 >/dev/null || :)
+    [ -n "$HEAD_ERROR" ] || HEAD_ERROR="wget failed without output"
+    return 1
   fi
   return 1
 }
@@ -142,7 +165,27 @@ sync_keybox() {
   [ -d "$targetDir" ] || return 0
 
   if ! head_request; then
-    log "HEAD request failed"
+    if [ -n "$HEAD_TOOL" ]; then
+      if [ -n "$HEAD_MISSING" ]; then
+        log "HEAD request failed using $HEAD_TOOL (missing: $HEAD_MISSING)"
+      else
+        log "HEAD request failed using $HEAD_TOOL"
+      fi
+    elif [ -n "$HEAD_MISSING" ]; then
+      log "HEAD request failed (missing: $HEAD_MISSING)"
+    else
+      log "HEAD request failed"
+    fi
+    if [ -n "$HEAD_ERROR" ]; then
+      printf '%s\n' "$HEAD_ERROR" | while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        if [ -n "$HEAD_TOOL" ]; then
+          log "HEAD $HEAD_TOOL: $line"
+        else
+          log "HEAD: $line"
+        fi
+      done
+    fi
     return 0
   fi
 
